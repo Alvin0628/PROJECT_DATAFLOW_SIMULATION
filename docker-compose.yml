@@ -1,0 +1,83 @@
+
+x-airflow-common: &airflow-common
+    build:
+        context:
+            dockerfile: docker/airflow/Dockerfile
+
+    image: project-airflow:latest #label / image name
+    restart: unless-stopped
+
+    environment:
+        AIRFLOW__CORE__EXECUTOR: LocalExecutor
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER_airflow}:${POSTGRES_PASSWORD_airflow}@postgres_airflow:5432/${POSTGRES_DB_airflow}
+        AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+
+    volumes:
+        - ./airflow/dags:/opt/airflow/dags
+        - ./airflow/logs:/opt/airflow/logs
+        - ./airflow/plugins:/opt/airflow/plugins
+        - ./airflow/config:/opt/airflow/config
+
+    networks:
+        - dataflow_network
+
+    depends_on:
+        - postgres_airflow
+
+services: 
+    postgres_airflow:
+        image: postgres:18
+        container_name: postgres_airflow
+        environment: 
+            POSTGRES_USER: ${POSTGRES_USER_airflow}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_airflow}
+            POSTGRES_DB: ${POSTGRES_DB_airflow}
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres_airflow_data:/var/lib/postgresql/data
+        networks:
+            - dataflow_network
+
+    postgres_warehouse:
+        image: postgres:18
+        container_name: postgres_warehouse
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER_warehouse}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_warehouse}
+            POSTGRES_DB: ${POSTGRES_DB_warehouse}
+        ports:
+            - "5433:5432"
+        volumes:
+            - postgres_warehouse_data:/var/lib/postgresql/data
+        networks:
+            - dataflow_network
+
+    airflow_init:
+        <<: *airflow-common
+        container_name: airflow_init
+        command: db migrate
+
+    airflow_scheduler:
+        <<: *airflow-common
+        container_name: airflow_scheduler
+        command: scheduler
+
+    airflow_webserver:
+        <<: *airflow-common
+        container_name: airflow_webserver
+        command: api-server
+        ports:
+            - "8080:8080"
+    
+    airflow_triggerer:
+        <<: *airflow-common
+        container_name: airflow_triggerer
+        command: triggerer
+
+volumes:
+  postgres_airflow_data:
+  postgres_warehouse_data:
+
+networks:
+  dataflow_network:

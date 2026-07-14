@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+
+sqlalchemy
+psycopg2-binary
+
+joblib
+
+xgboost
+lightgbm
+
+mlflow
+
+python-dotenv
