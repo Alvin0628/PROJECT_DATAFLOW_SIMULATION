@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Airflow
+logs/
+
+# Dataset
+dataset/master/*.csv
+dataset/master/*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+
+# Database
+*.db
+
+# Model
+models/*.pkl
+models/*.joblib
+
+# Build
+dist/
+build/
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+
+# Coverage
+.coverage
+htmlcov/
