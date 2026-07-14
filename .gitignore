@@ -1,0 +1,79 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+
+# ==========================
+# Virtual Environment
+# ==========================
+.venv/
+venv/
+env/
+
+# ==========================
+# Airflow Logs
+# ==========================
+logs/
+
+# ==========================
+# Datasets
+# ==========================
+datasets/master/*
+datasets/landing/*
+datasets/processing/*
+datasets/archive/*
+datasets/failed/*
+
+!datasets/master/.gitkeep
+!datasets/landing/.gitkeep
+!datasets/processing/.gitkeep
+!datasets/archive/.gitkeep
+!datasets/failed/.gitkeep
+
+# ==========================
+# IDE
+# ==========================
+.vscode/
+.idea/
+
+# ==========================
+# Environment Variables
+# ==========================
+.env
+
+# ==========================
+# Database
+# ==========================
+*.db
+
+# ==========================
+# Machine Learning Models
+# ==========================
+models/
+*.joblib
+*.pkl
+
+# ==========================
+# Node.js
+# ==========================
+node_modules/
+.next/
+
+# ==========================
+# Build
+# ==========================
+dist/
+build/
+
+# ==========================
+# Coverage
+# ==========================
+.coverage
+htmlcov/
+
+# ==========================
+# OS
+# ==========================
+.DS_Store
+Thumbs.db
