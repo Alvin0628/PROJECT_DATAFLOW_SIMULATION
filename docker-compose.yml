@@ -34,7 +34,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_airflow_data:/var/lib/postgresql/data
+      - postgres_airflow_data:/var/lib/postgresql
     networks:
       - dataflow_network
 
@@ -48,7 +48,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_warehouse_data:/var/lib/postgresql/data
+      - postgres_warehouse_data:/var/lib/postgresql
     networks:
       - dataflow_network
 
