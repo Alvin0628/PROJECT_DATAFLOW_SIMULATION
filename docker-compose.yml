@@ -15,7 +15,7 @@ x-airflow-common: &airflow-common
 
     AIRFLOW__CORE__FERNET_KEY: ""
 
-    AIRFLOW__CORE__LOAD_EXAMPLES: "True"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
 
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
 
