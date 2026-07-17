@@ -76,6 +76,7 @@ services:
       - "5433:5432"
     volumes:
       - postgres_warehouse_data:/var/lib/postgresql
+      - ./sql:/docker-entrypoint-initdb.d/
     networks:
       - dataflow_network
 

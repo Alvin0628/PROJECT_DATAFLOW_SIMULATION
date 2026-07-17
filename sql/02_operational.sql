@@ -1,0 +1,14 @@
+-- Description:
+-- This script creates all operational (OLTP) tables used as
+-- the source of truth for the entire data platform.
+--
+-- Schema:
+--   operational
+--
+-- Notes:
+-- - Tables follow the original Kaggle dataset structure.
+-- - Relationships are enforced using foreign keys.
+-- - Data loading is handled separately by the Bootstrap DAG.
+-- - This DDL is created following dependencies
+-- ==========================================================
+
