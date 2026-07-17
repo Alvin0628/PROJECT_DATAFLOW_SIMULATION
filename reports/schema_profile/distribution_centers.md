@@ -8,9 +8,9 @@
 
 ## Column Profiling
 
-|Column|CSV Type|PostgreSQL|Null|Null %|Unique|Duplicate|Min|Max|
-|---|---|---|---:|---:|---:|---:|---:|---:|
-|id|int64|INTEGER|0|0.0|10|0|1|10|
-|name|object|VARCHAR(255)|0|0.0|10|0|None|None|
-|latitude|float64|NUMERIC(10,2)|0|0.0|10|0|29.7604|41.8369|
-|longitude|float64|NUMERIC(10,2)|0|0.0|10|0|-118.25|-73.7834|
+|Column|CSV Type|Semantic Type|PostgreSQL|Null|Null %|Unique|Duplicate|Min|Max|
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+|id|int64|Identifier|INTEGER|0|0.0|10|0|1|10|
+|name|object|Text|VARCHAR(255)|0|0.0|10|0|None|None|
+|latitude|float64|Coordinate|DOUBLE PRECISION|0|0.0|10|0|29.7604|41.8369|
+|longitude|float64|Coordinate|DOUBLE PRECISION|0|0.0|10|0|-118.25|-73.7834|
