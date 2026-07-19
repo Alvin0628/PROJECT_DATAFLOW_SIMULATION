@@ -267,6 +267,20 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.events (
 -- TABLE : pipeline_metadata
 -- ==========================================================
 
+-- CREATE TABLE IF NOT EXISTS {{SCHEMA}}.pipeline_metadata (
+
+--     pipeline_name VARCHAR(100) PRIMARY KEY,
+
+--     last_user_offset INTEGER DEFAULT 0,
+
+--     last_batch_number INTEGER DEFAULT 0,
+
+--     last_run_at TIMESTAMP,
+
+--     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+-- );
+
 CREATE TABLE IF NOT EXISTS {{SCHEMA}}.pipeline_metadata (
 
     pipeline_name VARCHAR(100) PRIMARY KEY,
@@ -274,6 +288,10 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.pipeline_metadata (
     last_user_offset INTEGER DEFAULT 0,
 
     last_batch_number INTEGER DEFAULT 0,
+
+    last_batch_user_min_created_at TIMESTAMP,
+
+    last_batch_user_max_created_at TIMESTAMP,
 
     last_run_at TIMESTAMP,
 

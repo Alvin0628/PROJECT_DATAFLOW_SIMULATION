@@ -3,7 +3,8 @@ import psycopg
 
 from common.config import POSTGRES
 from common.logger import get_logger
-
+import io
+import pandas as pd
 
 logger = get_logger(__name__)
 
@@ -115,3 +116,46 @@ class Postgres:
             self.conn.close()
             self.conn = None
             logger.info("Connection closed.")
+            
+    def copy_dataframe(
+        self,
+        dataframe: pd.DataFrame,
+        schema: str,
+        table: str,
+    ):
+        """
+        Bulk insert DataFrame into PostgreSQL using COPY.
+        """
+        if dataframe.empty:
+            logger.info(
+                f"{table} is empty. Skip COPY."
+            )
+            return
+
+        logger.info(
+            f"COPY DataFrame -> {schema}.{table}"
+        )
+
+        buffer = io.StringIO()
+        dataframe.to_csv(
+            buffer,
+            index=False,
+            header=False,
+        )
+        buffer.seek(0)
+        with self.cursor.copy(
+            f"""
+            COPY {schema}.{table}
+            FROM STDIN
+            WITH
+            (
+                FORMAT CSV
+            )
+            """
+        ) as copy:
+            while chunk := buffer.read(8192):
+                copy.write(chunk)
+
+        logger.info(
+            f"{len(dataframe)} rows inserted into {schema}.{table}"
+        )
