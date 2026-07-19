@@ -1,1 +1,5 @@
-kaggle
+Kaggle
+pandas
+numpy 
+python-dotenv
+psycopg
