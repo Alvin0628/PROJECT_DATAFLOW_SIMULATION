@@ -56,6 +56,7 @@ class OperationalRepository:
             dataframe=dataframe,
             schema=self.operational_schema,
             table=table,
+            columns=dataframe.columns.tolist(),
         )
     
     def get_user_batch(
@@ -224,4 +225,181 @@ class OperationalRepository:
 
         return inventory_df
     
+    def insert_users(
+        self,
+        users_df: pd.DataFrame,
+    ):
+
+        logger.info(
+            f"Inserting {len(users_df)} users..."
+        )
+        self._bulk_insert_dataframe(
+            dataframe=users_df,
+            table="users",
+        )
+        logger.info(
+            "Users inserted successfully."
+        )
     
+    def insert_orders(
+        self,
+        orders_df: pd.DataFrame,
+    ):
+
+        logger.info(
+            f"Inserting {len(orders_df)} orders..."
+        )
+        self._bulk_insert_dataframe(
+            dataframe=orders_df,
+            table="orders",
+        )
+        logger.info(
+            "Orders inserted successfully."
+        )
+        
+    def insert_order_items(
+        self,
+        order_items_df: pd.DataFrame,
+    ):
+
+        logger.info(
+            f"Inserting {len(order_items_df)} order_items..."
+        )
+        self._bulk_insert_dataframe(
+            dataframe=order_items_df,
+            table="order_items",
+        )
+        logger.info(
+            "Order items inserted successfully."
+        )
+    
+    def insert_events(
+        self,
+        events_df: pd.DataFrame,
+    ):
+
+        logger.info(
+            f"Inserting {len(events_df)} events..."
+        )
+        self._bulk_insert_dataframe(
+            dataframe=events_df,
+            table="events",
+        )
+        logger.info(
+            "Events inserted successfully."
+        )
+    
+    def insert_inventory(
+        self,
+        inventory_df: pd.DataFrame,
+    ):
+
+        if inventory_df.empty:
+            logger.info(
+                "No inventory to insert."
+            )
+            return
+
+        logger.info(
+            f"Inserting {len(inventory_df)} inventory items..."
+        )
+
+        create_temp_sql = f"""
+        CREATE TEMP TABLE tmp_inventory_items
+        (
+            LIKE {self.operational_schema}.inventory_items
+            INCLUDING DEFAULTS
+        )
+        ON COMMIT DROP;
+        """
+        self.db.execute(create_temp_sql)
+
+        # COPY dataframe
+        self.db.copy_dataframe_to_temp_table(
+            dataframe=inventory_df,
+            table="tmp_inventory_items",
+            columns=list(inventory_df.columns),
+        )
+        
+        # INSERT ON CONFLICT
+        insert_sql = f"""
+        INSERT INTO {self.operational_schema}.inventory_items
+        SELECT *
+        FROM tmp_inventory_items
+        ON CONFLICT (id)
+        DO NOTHING
+        """
+
+        self.db.execute(insert_sql)
+
+        logger.info(
+            "Inventory inserted successfully."
+        )
+        
+    def update_inventory_sold_at(
+        self,
+        order_items_df: pd.DataFrame,
+    ):
+        """
+        Update inventory_items.sold_at
+        based on processed order_items.
+        """
+
+        if order_items_df.empty:
+            logger.info(
+                "No order items found. Skip inventory sold_at update."
+            )
+            return
+
+        logger.info(
+            f"Updating sold_at for {len(order_items_df)} inventory items..."
+        )
+        
+        # Prepare dataframe
+        sold_df = order_items_df[
+            [
+                "inventory_item_id",
+                "created_at",
+            ]
+        ].copy()
+
+        sold_df.rename(
+            columns={
+                "created_at": "sold_at",
+            },
+            inplace=True,
+        )
+        
+        # Create temporary table
+        create_temp_sql = """
+        CREATE TEMP TABLE tmp_inventory_sold
+        (
+            inventory_item_id INTEGER PRIMARY KEY,
+            sold_at TIMESTAMP
+        )
+        ON COMMIT DROP;
+        """
+        self.db.execute(create_temp_sql)
+        
+        # COPY dataframe to temporary table
+        self.db.copy_dataframe_to_temp_table(
+            dataframe=sold_df,
+            table="tmp_inventory_sold",
+            columns=list(sold_df.columns),
+        )
+
+        # UPDATE inventory_items
+        update_sql = f"""
+        UPDATE {self.operational_schema}.inventory_items AS inventory
+        SET
+            sold_at = temp.sold_at
+        FROM tmp_inventory_sold AS temp
+        WHERE
+            inventory.id = temp.inventory_item_id
+            AND inventory.sold_at IS NULL;
+        """
+        self.db.execute(update_sql)
+
+        logger.info(
+            "Inventory sold_at updated successfully."
+        )
