@@ -1,12 +1,12 @@
-from common.config import (
+from scripts.common.config import (
     SQL,
     SCHEMA,
     TABLES,
 )
 
-from common.logger import get_logger
-from common.postgres import Postgres
-from common.copy_utils import copy_table
+from scripts.common.logger import get_logger
+from scripts.common.postgres import Postgres
+from scripts.common.copy_utils import copy_table
 
 logger = get_logger(__name__)
 
@@ -18,6 +18,11 @@ def bootstrap():
     logger.info("=" * 60)
 
     with Postgres() as db:
+
+        # Drop schema if exists to ensure clean slate
+        logger.info(f"Dropping schema {SCHEMA['raw']} if exists...")
+        db.execute(f"DROP SCHEMA IF EXISTS {SCHEMA['raw']} CASCADE;")
+        db.commit()
 
         logger.info("Creating operational_raw tables...")
 

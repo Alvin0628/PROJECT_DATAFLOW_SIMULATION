@@ -1,5 +1,5 @@
 import logging
-from common.config import LOGGING
+from scripts.common.config import LOGGING
 
 def get_logger(name: str) -> logging.Logger:
     """

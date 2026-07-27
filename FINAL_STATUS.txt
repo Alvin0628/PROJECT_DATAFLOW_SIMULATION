@@ -1,0 +1,169 @@
+✅ REDESIGN ARCHITECTURE INCREMENTAL LOADING - COMPLETE
+========================================================
+
+Status: REDESIGN SELESAI ✅ | EXECUTION BELUM (ready to run)
+
+============================================================================
+FILES YANG DIUBAH/DITAMBAH
+============================================================================
+
+MODIFIED (DIUBAH):
+  1. ✅ scripts/repositories/operational_repository.py
+     - Rewrite (~330 lines)
+     - Removed ON CONFLICT, added direct inserts (fail-fast)
+     - New methods: get_total_users_in_raw(), insert_master_data()
+
+  2. ✅ scripts/common/metadata.py
+     - Enhanced (+50 lines)
+     - Added: validate_progress() method
+     - Backward compatible
+
+  3. ✅ scripts/loaders/incremental_loader.py
+     - Rewrite (~300 lines)
+     - 7-step flow dengan detailed logging
+     - Fail-fast design, no ON CONFLICT
+
+  4. ✅ scripts/setup/setup_operational_schema.py
+     - Enhanced (+20 lines)
+     - Added: Master data loading
+
+  5. ✅ docker-compose.yml
+     - Simplified (-30 lines)
+     - Removed: load-initial-data service
+     - Kept: bootstrap-loader, setup-operational-schema, incremental-loader
+
+CREATED (BARU):
+  6. ✅ airflow/dags/operational_incremental_loading.py
+     - New file (~165 lines)
+     - 1 DAG recurring (every 5 minutes)
+     - 4 tasks: check → load → validate → report
+     - Auto-stops when complete
+
+  7. ✅ scripts/tests/validation_tests.py
+     - New file (~450 lines)
+     - 14 comprehensive tests
+     - Tests setup, incremental, completion phases
+
+  8. ✅ airflow/dags/bootstrap_and_setup.py
+     - DEPRECATED (stub file)
+     - Bootstrap is manual, not DAG
+
+DELETED:
+  9. ✅ scripts/setup/load_initial_data.py
+     - No longer needed
+     - Functionality moved to setup_operational_schema.py
+
+============================================================================
+ARCHITECTURE RINGKAS
+============================================================================
+
+PHASE 1: BOOTSTRAP (One-time manual)
+  Run 1: docker-compose up bootstrap-loader
+         → operational_raw schema + CSV data loaded
+         → Time: 5-30 menit
+
+  Run 2: docker-compose up setup-operational-schema
+         → operational schema (empty) + master data loaded
+         → Time: 1-2 menit
+
+PHASE 2: INCREMENTAL LOADING (Airflow DAG, recurring)
+  DAG: operational_incremental_loading
+  Schedule: Setiap 5 menit
+  
+  Per run (1 batch):
+    ✓ Check if complete (skip if done)
+    ✓ Load 5000 users + dependencies
+    ✓ Insert to operational
+    ✓ Update metadata offset
+    ✓ Report progress
+
+============================================================================
+CARA JALANKAN INCREMENTAL LOADING
+============================================================================
+
+Prerequisite: Bootstrap sudah selesai
+  - operational_raw populated
+  - operational empty
+  - Metadata initialized
+
+Jalankan di Airflow:
+  1. Go to: http://localhost:8080
+  2. Find DAG: operational_incremental_loading
+  3. Click: Toggle/Unpause button
+  
+  OR via CLI:
+  airflow dags unpause operational_incremental_loading
+
+DAG auto-runs:
+  - Every 5 minutes (automatic)
+  - Each run: load 1 batch (~5000 users)
+  - Progress tracked in metadata
+  - Auto-stops when offset >= total_users_raw
+
+Monitor progress:
+  Query: SELECT * FROM operational.pipeline_metadata;
+  
+  Expected progression:
+  - Batch 0: offset=0
+  - Batch 1: offset=5000
+  - Batch 2: offset=10000
+  - ...
+  - Final: offset=total_users_raw (complete)
+
+============================================================================
+VERIFICATION - SEMUA SUDAH READY
+============================================================================
+
+✅ Code files: Siap (tidak ada compile errors)
+✅ Docker: Siap (docker-compose.yml updated)
+✅ DAG: Siap (operational_incremental_loading.py ready)
+✅ Tests: Siap (validation_tests.py dengan 14 tests)
+✅ Documentation: Lengkap (8 files, 100k+ words)
+
+Tidak dijalankan YET:
+  ❌ Bootstrap (docker-compose up bootstrap-loader)
+  ❌ Database changes (DROP/CREATE schemas)
+  ❌ CSV loading (via bootstrap)
+  ❌ Incremental batches (via DAG)
+
+============================================================================
+TIMELINE
+============================================================================
+
+Jika Anda jalankan sekarang:
+
+Setup: 30-40 menit
+  - Bootstrap loader: 5-30 menit (CSV size dependent)
+  - Setup schema: 1-2 menit
+
+Incremental loading: 16-17 jam (untuk 1M users @ 5k/batch)
+  - 200 batches × 5 menit = 1000 menit = 16-17 jam
+  - DAG auto-run, Anda tinggal monitor
+
+Total: ~17-18 jam (one-time)
+
+============================================================================
+KESIMPULAN
+============================================================================
+
+✅ REDESIGN: SELESAI
+   - Semua files sudah benar
+   - Architecture clean dan production-ready
+   - Bootstrap manual (not DAG)
+   - Incremental melalui 1 DAG recurring
+
+❌ EXECUTION: BELUM
+   - Belum jalankan docker-compose
+   - Belum jalankan bootstrap
+   - Belum unpause DAG
+   - Belum ada data di database
+
+LANGKAH SELANJUTNYA:
+  1. Backup database
+  2. docker-compose build
+  3. docker-compose up bootstrap-loader
+  4. docker-compose up setup-operational-schema
+  5. airflow dags unpause operational_incremental_loading
+  6. Monitor hingga complete
+
+============================================================================

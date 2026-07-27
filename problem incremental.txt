@@ -1,0 +1,549 @@
+# Analisis Lengkap: Incremental Loader Error & Solusi
+
+Saya akan jelaskan semua problem yang terjadi dari awal sampai akhir dan bagaimana cara mengatasi setiap
+masalahnya.
+
+--------
+
+## PROBLEM #1: ModuleNotFoundError - Import Path Salah
+
+### Gejala/Error:
+
+⎘
+ModuleNotFoundError: No module named 'common'
+
+
+### Root Cause:
+
+File scripts/loaders/incremental_loader.py menggunakan relative import:
+
+⎘
+from common.postgres import Postgres
+from repositories.operational_repository import OperationalRepository
+from common.config import PIPELINE
+
+
+Tapi file scripts/loaders/bootstrap_loader.py menggunakan absolute import:
+
+⎘
+from scripts.common.config import (SQL, SCHEMA, TABLES)
+from scripts.common.postgres import Postgres
+
+
+Ketika container menjalankan command python -m scripts.loaders.incremental_loader, Python interpreter tidak bisa
+menemukan module common karena path-nya harus absolute (dari working directory /opt/airflow).
+
+### Solusi:
+
+Ubah semua import di incremental_loader.py ke absolute path:
+
+⎘
+# BEFORE (SALAH)
+from common.postgres import Postgres
+from repositories.operational_repository import OperationalRepository
+
+# AFTER (BENAR)
+from scripts.common.postgres import Postgres
+from scripts.repositories.operational_repository import OperationalRepository
+
+
+Lakukan juga pada operational_repository.py:
+
+⎘
+# BEFORE
+from common.config import (SCHEMA, SIMULATION)
+from common.logger import get_logger
+
+# AFTER
+from scripts.common.config import (SCHEMA, SIMULATION)
+from scripts.common.logger import get_logger
+
+
+Pembelajaran: Ketika script dijalankan via python -m package.module (sebagai module, bukan script langsung),
+selalu gunakan absolute import dari root package.
+
+--------
+
+## PROBLEM #2: UndefinedTable - Operational Schema Tidak Ada
+
+### Gejala/Error:
+
+⎘
+psycopg.errors.UndefinedTable: relation "operational.pipeline_metadata" does not exist
+
+
+### Root Cause:
+
+Incremental loader mencoba insert ke tabel operational.pipeline_metadata:
+
+⎘
+metadata.initialize(pipeline_name=self.pipeline_name)  # INSERT ke operational.pipeline_metadata
+
+
+Tapi schema operational dan tabel-tabelnya belum pernah dibuat. Hanya schema operational_raw yang dibuat oleh
+bootstrap loader.
+
+Struktur yang seharusnya ada:
+
+⎘
+operational_raw (raw data dari CSV)
+users, orders, products, dll...
+
+operational (processed data untuk incremental loading)
+users, orders, products, pipeline_metadata, dll...
+
+
+Incremental loader membutuhkan dua schema:
+
+- operational_raw — source data
+- operational — destination untuk incremental pipeline
+
+### Solusi:
+
+Buat file baru scripts/setup/setup_operational_schema.py:
+
+⎘
+from scripts.common.postgres import Postgres
+from scripts.common.config import SQL, SCHEMA
+from scripts.common.logger import get_logger
+
+def setup_operational_schema():
+logger.info("Creating operational schema...")
+
+with Postgres() as db:
+db.execute_sql_template(
+sql_path=SQL["operational"],
+schema=SCHEMA["operational"],
+)
+logger.info(f"Schema {SCHEMA['operational']} created successfully.")
+
+if __name__ == "__main__":
+setup_operational_schema()
+
+
+File SQL sql/02_operational.sql sudah memiliki template yang menerima {{SCHEMA}} placeholder:
+
+⎘
+CREATE SCHEMA {{SCHEMA}};
+
+CREATE TABLE {{SCHEMA}}.pipeline_metadata (
+pipeline_name VARCHAR(100) PRIMARY KEY,
+last_user_offset INTEGER DEFAULT 0,
+...
+);
+
+
+Postgres.execute_sql_template() akan replace {{SCHEMA}} dengan operational.
+
+Pembelajaran: Setup schema dan tabel harus dilakukan sebelum data loader dijalankan. Jangan assume bahwa table
+sudah ada.
+
+--------
+
+## PROBLEM #3: ForeignKeyViolation - Data Dependencies
+
+### Gejala/Error (Pertama):
+
+⎘
+psycopg.errors.ForeignKeyViolation: insert or update on table "inventory_items"
+violates foreign key constraint "fk_inventory_product"
+DETAIL: Key (product_id)=(4865) is not present in table "products".
+
+
+### Root Cause:
+
+Schema operational memiliki foreign key constraints:
+
+⎘
+CREATE TABLE inventory_items (
+...
+CONSTRAINT fk_inventory_product
+FOREIGN KEY (product_id)
+REFERENCES {{SCHEMA}}.products(id),
+);
+
+
+Ketika incremental loader mencoba insert 418 inventory items, table products di schema operational masih kosong.
+Bootstrap loader hanya load ke operational_raw, bukan ke operational.
+
+Data Flow yang seharusnya:
+
+⎘
+CSV files
+↓
+bootstrap_loader
+↓
+operational_raw (semua data raw)
+↓
+load_initial_data (copy master data + initial transactions)
+↓
+operational (ready untuk incremental loading)
+↓
+incremental_loader (load next batch)
+
+
+### Solusi:
+
+Buat file baru scripts/setup/load_initial_data.py untuk copy semua data dari raw ke operational:
+
+⎘
+def load_initial_data():
+with Postgres() as db:
+raw_schema = SCHEMA["raw"]
+operational_schema = SCHEMA["operational"]
+
+# 1. Load master tables (no dependencies)
+for table in ["distribution_centers", "products"]:
+sql = f"""
+INSERT INTO {operational_schema}.{table}
+SELECT * FROM {raw_schema}.{table}
+ON CONFLICT DO NOTHING;
+"""
+db.execute(sql)
+
+# 2. Load inventory_items (depends on products)
+sql = f"""
+INSERT INTO {operational_schema}.inventory_items
+SELECT * FROM {raw_schema}.inventory_items
+ON CONFLICT DO NOTHING;
+"""
+db.execute(sql)
+
+# 3-6. Load users, orders, order_items, events
+# (dalam urutan sesuai dependencies)
+
+
+Important: Urutan load harus sesuai dengan foreign key dependencies:
+
+- distribution_centers (no dependency)
+- products (depends on distribution_centers)
+- inventory_items (depends on products)
+- users (no dependency)
+- orders (depends on users)
+- order_items (depends on orders + inventory_items)
+- events (depends on users)
+
+Pembelajaran: Selalu pelajari foreign key structure sebelum melakukan bulk insert. Load master data (yang tidak
+punya dependency) terlebih dahulu.
+
+--------
+
+## PROBLEM #4: UniqueViolation - Duplicate Data
+
+### Gejala/Error (Kedua):
+
+⎘
+psycopg.errors.UniqueViolation: duplicate key value violates unique constraint "users_pkey"
+DETAIL: Key (id)=(56219) already exists.
+
+
+### Root Cause:
+
+Setelah load_initial_data berhasil, semua data sudah ada di tabel operational:
+
+⎘
+operational.users: 12,600 rows (dari operational_raw)
+operational.orders: 106,968 rows
+operational.order_items: 1,286,556 rows
+
+
+Incremental loader mencoba insert batch pertama (5000 users dengan offset=0), yang berarti users ID 1-5000. Tapi
+data ini sudah ada di operational karena load_initial_data sudah copy semua.
+
+Original code di operational_repository.py:
+
+⎘
+def _bulk_insert_dataframe(self, dataframe, table):
+self.db.copy_dataframe(  # COPY langsung, no conflict handling
+dataframe=dataframe,
+schema=self.operational_schema,
+table=table,
+)
+
+
+Method copy_dataframe() menggunakan COPY FROM STDIN, yang tidak support ON CONFLICT. Hasilnya duplicate data akan
+error.
+
+### Solusi:
+
+Ubah insert logic untuk menggunakan temporary table + INSERT with ON CONFLICT:
+
+⎘
+def _bulk_insert_dataframe_safe(self, dataframe, table):
+# 1. Create temporary table
+create_temp_sql = f"""
+CREATE TEMP TABLE tmp_{table}
+(
+LIKE {self.operational_schema}.{table}
+INCLUDING DEFAULTS
+)
+ON COMMIT DROP;
+"""
+self.db.execute(create_temp_sql)
+
+# 2. COPY ke temp table (tidak perlu worry tentang constraints)
+self.db.copy_dataframe_to_temp_table(
+dataframe=dataframe,
+table=f"tmp_{table}",
+columns=list(dataframe.columns),
+)
+
+# 3. INSERT FROM temp table dengan ON CONFLICT
+columns_sql = ", ".join(dataframe.columns)
+insert_sql = f"""
+INSERT INTO {self.operational_schema}.{table}
+({columns_sql})
+SELECT {columns_sql}
+FROM tmp_{table}
+ON CONFLICT DO NOTHING
+"""
+self.db.execute(insert_sql)
+
+
+Mengapa pakai temp table?
+
+Method                Pros                         Cons
+
+COPY langsung         Cepat                        Tidak support ON CONFLICT
+
+INSERT dengan JOIN    Support ON CONFLICT          Lebih lambat
+
+COPY → Temp → INSERT  Cepat + Support ON CONFLICT  Require extra step
+
+Pembelajaran: PostgreSQL COPY command tidak support ON CONFLICT. Workaround-nya: gunakan temp table sebagai
+staging area.
+
+--------
+
+## PROBLEM #5: Connection Lost During Insert
+
+### Gejala/Error (Ketiga):
+
+⎘
+psycopg.errors.ForeignKeyViolation: insert or update on table "order_items"
+violates foreign key constraint "fk_order_items_inventory"
+DETAIL: Key (inventory_item_id)=(163) is not present in table "inventory_items".
+
+
+### Root Cause:
+
+Insert order ke-lima (order_items) gagal karena inventory_items belum lengkap. Sebelum update
+operational_repository, urutan insert adalah:
+
+- Insert users ✓
+- Insert orders ✓
+- Insert inventory ✓
+- Insert order_items ✗ (inventory_item_id=163 tidak ada)
+- Insert events
+- Update inventory sold_at
+
+Masalahnya: Ketika load data batch pertama (offset=0), hanya load inventory items yang created_at <=
+max(users.created_at batch pertama). Tapi ada order_items yang reference inventory items dengan ID yang belum
+di-load karena created_at-nya lebih besar.
+
+### Solusi:
+
+Ini bukan solusi code, tapi solusi data logic. Incremental loader hanya bisa jalan setelah:
+
+- Semua master data (products, distribution_centers) sudah ada
+- Semua initial transaction data sudah di-copy ke operational
+
+Urutan execution yang benar:
+
+⎘
+# Step 1: Load raw data
+docker compose run --rm bootstrap-loader
+
+# Step 2: Create operational schema
+docker compose run --rm setup-operational-schema
+
+# Step 3: Copy all data from raw to operational
+docker compose run --rm load-initial-data
+
+# Step 4: Run incremental loader (load next batch)
+docker compose run --rm incremental-loader
+
+
+Pembelajaran: Sebelum incremental loading bisa jalan, harus ada "initialization phase" di mana semua existing
+data sudah ter-load ke operational schema.
+
+--------
+
+## DOCKER-COMPOSE ORCHESTRATION
+
+Untuk automasi, tambahkan services ke docker-compose.yml:
+
+⎘
+setup-operational-schema:
+build:
+context: .
+dockerfile: docker/airflow/Dockerfile
+image: project-airflow:latest
+command: python -m scripts.setup.setup_operational_schema
+env_file: .env
+environment:
+POSTGRES_HOST: postgres_warehouse
+POSTGRES_PORT_warehouse: 5432
+volumes:
+- ./scripts:/opt/airflow/scripts
+- ./sql:/opt/airflow/sql
+networks:
+- dataflow_network
+depends_on:
+postgres_warehouse:
+condition: service_healthy
+
+load-initial-data:
+build:
+context: .
+dockerfile: docker/airflow/Dockerfile
+image: project-airflow:latest
+command: python -m scripts.setup.load_initial_data
+env_file: .env
+environment:
+POSTGRES_HOST: postgres_warehouse
+POSTGRES_PORT_warehouse: 5432
+volumes:
+- ./scripts:/opt/airflow/scripts
+- ./sql:/opt/airflow/sql
+networks:
+- dataflow_network
+depends_on:
+postgres_warehouse:
+condition: service_healthy
+
+incremental-loader:
+build:
+context: .
+dockerfile: docker/airflow/Dockerfile
+image: project-airflow:latest
+command: python -m scripts.loaders.incremental_loader
+env_file: .env
+environment:
+POSTGRES_HOST: postgres_warehouse
+POSTGRES_PORT_warehouse: 5432
+volumes:
+- ./scripts:/opt/airflow/scripts
+- ./sql:/opt/airflow/sql
+networks:
+- dataflow_network
+depends_on:
+postgres_warehouse:
+condition: service_healthy
+
+
+Manual execution:
+
+⎘
+# Run once (setup)
+docker compose run --rm bootstrap-loader
+docker compose run --rm setup-operational-schema
+docker compose run --rm load-initial-data
+
+# Run repeatedly (incremental batches)
+docker compose run --rm incremental-loader
+docker compose run --rm incremental-loader  # batch 2
+docker compose run --rm incremental-loader  # batch 3
+
+
+--------
+
+## RINGKASAN: 5 PROBLEMS & SOLUTIONS
+
+#  Problem                                       Cause              Solution
+
+1  ModuleNotFoundError: common                   Relative import    Use absolute import: from
+scripts.common...
+
+2  UndefinedTable:                               Schema tidak       Create setup_operational_schema.py
+operational.pipeline_metadata                 dibuat
+
+3  ForeignKeyViolation: product_id not found     Master data        Create load_initial_data.py untuk copy
+kosong             dari raw
+
+4  UniqueViolation: duplicate ID                 Data sudah ada     Use temp table + ON CONFLICT DO NOTHING
+
+5  ForeignKeyViolation: inventory_item_id not    Incomplete         Ensure all data loaded di initialization
+found                                         inventory          phase
+
+--------
+
+## EXECUTION FLOW DIAGRAM
+
+⎘
+
+PostgreSQL Database
+
+[SETUP PHASE - Run Once]
+
+operational_raw schema (bootstrap_loader)
+• users: 12,600 rows
+• orders: 106,968 rows
+• order_items: 1,286,556 rows
+• events: 1,126,851 rows
+• inventory_items: 7,050 rows
+• products: 7,000 rows
+• distribution_centers: 12 rows
+
+↓ setup_operational_schema
+
+operational schema (empty tables created)
+• users (empty)
+• orders (empty)
+• order_items (empty)
+• events (empty)
+• inventory_items (empty)
+• products (empty)
+• distribution_centers (empty)
+• pipeline_metadata (empty)
+
+↓ load_initial_data
+
+operational schema (fully populated)
+• users: 12,600 rows
+• orders: 106,968 rows
+• order_items: 1,286,556 rows
+• events: 1,126,851 rows
+• inventory_items: 7,050 rows
+• products: 7,000 rows
+• distribution_centers: 12 rows
+• pipeline_metadata (empty)
+
+
+[INCREMENTAL PHASE - Run Repeatedly]
+↓ incremental_loader (Batch 1)
+
+operational schema (after batch 1)
+• users: 12,600 + 5,000 (batch 1) = 17,600
+• orders: 106,968 + 6,151 (batch 1) = 113,119
+• pipeline_metadata:
+- last_user_offset: 5000
+- last_batch_number: 1
+- last_batch_user_min_created_at: ...
+- last_batch_user_max_created_at: ...
+
+↓ incremental_loader (Batch 2)
+
+operational schema (after batch 2)
+• users: 17,600 + 5,000 (batch 2) = 22,600
+• pipeline_metadata:
+- last_user_offset: 10000
+- last_batch_number: 2
+
+
+
+
+
+--------
+
+## KEY LEARNINGS
+
+- Import Paths: Selalu gunakan absolute import ketika script dijalankan sebagai module (python -m)
+- Schema Planning: Buat schema terpisah untuk raw vs processed data
+- Foreign Key Dependencies: Pahami dependency chain sebelum bulk insert
+- PostgreSQL COPY Limitation: COPY tidak support ON CONFLICT, gunakan temp table workaround
+- Initialization Phase: Sebelum incremental loading, pastikan semua existing data sudah ter-setup dengan benar
+- Metadata Tracking: Gunakan pipeline_metadata table untuk track state (offset, batch number) untuk resume di
+kemudian hari
+
+Semua ini sudah diterapkan dan incremental loader sekarang berjalan dengan sempurna

@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from common.config import (
+from scripts.common.config import (
     DATASET_DIR,
     TABLES,
     SCHEMA,
 )
 
-from common.logger import get_logger
+from scripts.common.logger import get_logger
 logger = get_logger(__name__)
 
 def get_csv_path(table: str) -> Path:

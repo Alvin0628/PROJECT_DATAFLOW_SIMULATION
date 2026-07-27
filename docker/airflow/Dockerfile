@@ -1,4 +1,4 @@
-FROM apache/airflow:3.3.0
+FROM apache/airflow:2.9.0
 
 # ========================================
 # Install Linux Packages

@@ -15,13 +15,12 @@ AIRFLOW_DIR = PROJECT_ROOT / "airflow"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 #Postgres Configurations
-
 POSTGRES = {
-    "host": os.getenv("POSTGRES_HOST", "localhost"),
-    "port": int(os.getenv("POSTGRES_PORT", 5432)),
-    "dbname": os.getenv("POSTGRES_DB_warehouse"),
-    "user": os.getenv("POSTGRES_USER_warehouse"),
-    "password": os.getenv("POSTGRES_PASSWORD_warehouse"),
+    "host": os.getenv("POSTGRES_HOST", "postgres_warehouse"), 
+    "port": int(os.getenv("POSTGRES_PORT_warehouse", 5432)),
+    "dbname": os.getenv("POSTGRES_DB_warehouse", "Looker_ECommerce"),
+    "user": os.getenv("POSTGRES_USER_warehouse", "postgres_warehouse"),
+    "password": os.getenv("POSTGRES_PASSWORD_warehouse", "WH721HDA"),
 }
 
 #Schema
@@ -56,6 +55,8 @@ SIMULATION = {
 PIPELINE = {
 
     "metadata_table": "pipeline_metadata",
+    "pipeline_name": "operational_incremental",
+
 
 }
 

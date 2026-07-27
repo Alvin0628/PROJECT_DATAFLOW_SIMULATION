@@ -1,8 +1,8 @@
 from pathlib import Path
 import psycopg
 
-from common.config import POSTGRES
-from common.logger import get_logger
+from scripts.common.config import POSTGRES
+from scripts.common.logger import get_logger
 import io
 import pandas as pd
 
@@ -20,6 +20,7 @@ class Postgres:
     def connect(self):
         if self.conn is None:
             logger.info("Connecting to PostgreSQL...")
+            print(POSTGRES)
             self.conn = psycopg.connect(**POSTGRES)
             self.cursor = self.conn.cursor()
             logger.info("Connected successfully.")

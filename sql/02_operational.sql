@@ -19,11 +19,17 @@
 -- ==========================================================
 
 -- ==========================================================
+-- CREATE SCHEMA
+-- ==========================================================
+
+CREATE SCHEMA {{SCHEMA}};
+
+-- ==========================================================
 -- TABLE : distribution_centers
 -- Grain : 1 row = 1 distribution center
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.distribution_centers (
+CREATE TABLE {{SCHEMA}}.distribution_centers (
 
     id INTEGER PRIMARY KEY,
 
@@ -40,7 +46,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.distribution_centers (
 -- Grain : 1 row = 1 product
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.products (
+CREATE TABLE {{SCHEMA}}.products (
 
     id INTEGER PRIMARY KEY,
 
@@ -71,9 +77,9 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.products (
 -- Grain : 1 row = 1 user
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.users (
+CREATE TABLE {{SCHEMA}}.users (
 
-    id INTEGER PRIMARY KEY,
+    id NUMERIC PRIMARY KEY,
 
     first_name VARCHAR(255),
 
@@ -110,7 +116,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.users (
 -- Grain : 1 row = 1 physical inventory item
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.inventory_items (
+CREATE TABLE {{SCHEMA}}.inventory_items (
 
     id INTEGER PRIMARY KEY,
 
@@ -151,11 +157,11 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.inventory_items (
 -- Grain : 1 row = 1 order
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.orders (
+CREATE TABLE {{SCHEMA}}.orders (
 
     order_id INTEGER PRIMARY KEY,
 
-    user_id INTEGER,
+    user_id NUMERIC,
 
     status VARCHAR(50),
 
@@ -179,16 +185,16 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.orders (
 
 -- ==========================================================
 -- TABLE : order_items
--- Grain : 1 row = 1 purchased item
+-- Grain : 1 row = 1 purchased item (fulfilled/in-stock)
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.order_items (
+CREATE TABLE {{SCHEMA}}.order_items (
 
     id INTEGER PRIMARY KEY,
 
     order_id INTEGER,
 
-    user_id INTEGER,
+    user_id NUMERIC,
 
     product_id INTEGER,
 
@@ -225,15 +231,63 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.order_items (
 );
 
 -- ==========================================================
+-- TABLE : order_items_out_of_stock
+-- Grain : 1 row = 1 order item that could NOT be fulfilled (inventory not available)
+-- Purpose: Track unfulfilled orders due to stock unavailability (BUSINESS INSIGHT)
+-- ==========================================================
+
+CREATE TABLE {{SCHEMA}}.order_items_out_of_stock (
+
+    id INTEGER PRIMARY KEY,
+
+    order_id INTEGER,
+
+    user_id NUMERIC,
+
+    product_id INTEGER,
+
+    requested_inventory_item_id INTEGER,
+
+    status VARCHAR(50),
+
+    created_at TIMESTAMP,
+
+    shipped_at TIMESTAMP,
+
+    delivered_at TIMESTAMP,
+
+    returned_at TIMESTAMP,
+
+    sale_price NUMERIC(10,2),
+
+    reason VARCHAR(255) DEFAULT 'inventory_item_not_available',
+
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_order_items_oos_order
+        FOREIGN KEY (order_id)
+        REFERENCES {{SCHEMA}}.orders(order_id),
+
+    CONSTRAINT fk_order_items_oos_user
+        FOREIGN KEY (user_id)
+        REFERENCES {{SCHEMA}}.users(id),
+
+    CONSTRAINT fk_order_items_oos_product
+        FOREIGN KEY (product_id)
+        REFERENCES {{SCHEMA}}.products(id)
+
+);
+
+-- ==========================================================
 -- TABLE : events
 -- Grain : 1 row = 1 website event
 -- ==========================================================
 
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.events (
+CREATE TABLE {{SCHEMA}}.events (
 
     id INTEGER PRIMARY KEY,
 
-    user_id INTEGER,
+    user_id NUMERIC,
 
     sequence_number INTEGER,
 
@@ -267,21 +321,7 @@ CREATE TABLE IF NOT EXISTS {{SCHEMA}}.events (
 -- TABLE : pipeline_metadata
 -- ==========================================================
 
--- CREATE TABLE IF NOT EXISTS {{SCHEMA}}.pipeline_metadata (
-
---     pipeline_name VARCHAR(100) PRIMARY KEY,
-
---     last_user_offset INTEGER DEFAULT 0,
-
---     last_batch_number INTEGER DEFAULT 0,
-
---     last_run_at TIMESTAMP,
-
---     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
--- );
-
-CREATE TABLE IF NOT EXISTS {{SCHEMA}}.pipeline_metadata (
+CREATE TABLE {{SCHEMA}}.pipeline_metadata (
 
     pipeline_name VARCHAR(100) PRIMARY KEY,
 
