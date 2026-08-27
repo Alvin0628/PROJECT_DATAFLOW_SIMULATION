@@ -19,10 +19,13 @@ def bootstrap():
 
     with Postgres() as db:
 
-        # Drop schema if exists to ensure clean slate
-        logger.info(f"Dropping schema {SCHEMA['raw']} if exists...")
-        db.execute(f"DROP SCHEMA IF EXISTS {SCHEMA['raw']} CASCADE;")
-        db.commit()
+        logger.info("Executing master schema reset (01_schema.sql)...")
+        with open(SQL["schema"], "r") as file:
+            schema_sql = file.read()
+            db.execute(schema_sql)
+            db.commit()
+        logger.info("All schemas dropped and recreated successfully.")
+        logger.info("-" * 60)
 
         logger.info("Creating operational_raw tables...")
 
@@ -59,6 +62,7 @@ def bootstrap():
     logger.info("=" * 60)
     logger.info("BOOTSTRAP LOADER FINISHED")
     logger.info("=" * 60)
+
 
 if __name__ == "__main__":
     bootstrap()

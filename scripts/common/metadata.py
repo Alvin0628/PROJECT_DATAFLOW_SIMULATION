@@ -1,4 +1,5 @@
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from scripts.common.config import (
     PIPELINE,
     SCHEMA,
@@ -11,6 +12,7 @@ logger = get_logger(__name__)
 class PipelineMetadata:
     def __init__(self, db):
         self.db = db
+        self.raw_schema = SCHEMA["raw"]
         self.schema = SCHEMA["operational"]
         self.table = PIPELINE["metadata_table"]
 
@@ -18,40 +20,66 @@ class PipelineMetadata:
     def full_table(self):
         return f"{self.schema}.{self.table}"
 
+    def get_earliest_order_date(self):
+        """Fetch the absolute minimum order creation date from raw data to start simulation."""
+        sql = f"SELECT MIN(created_at) FROM {self.raw_schema}.orders"
+        self.db.execute(sql)
+        row = self.db.fetchone()
+        
+        if not row or not row[0]:
+            logger.warning("No orders found in raw schema. Defaulting to 2019-01-01.")
+            return datetime(2019, 1, 1)
+            
+        # Optional: Start at the 1st of the month for cleaner batching (e.g., 2019-01-14 -> 2019-01-01)
+        earliest_date = row[0]
+        return earliest_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    def get_latest_order_date(self):
+        """Fetch the absolute maximum order creation date from raw data to end simulation."""
+        sql = f"SELECT MAX(created_at) FROM {self.raw_schema}.orders"
+        self.db.execute(sql)
+        row = self.db.fetchone()
+        return row[0] if row else datetime.now()
+
     def initialize(self, pipeline_name: str):
-        """Initialize metadata for new pipeline (idempotent)."""
+        """
+        Initialize metadata for a new pipeline (idempotent).
+        Sets the starting time window based on the earliest order date.
+        """
+        earliest_date = self.get_earliest_order_date()
+        
+        # Default: 1 Month window
+        first_period_end = earliest_date + relativedelta(months=1)
+        
+        logger.info(f"Initializing metadata. Simulation starts from: {earliest_date.strftime('%Y-%m-%d')}")
+
         sql = f"""
         INSERT INTO {self.full_table}
         (
             pipeline_name,
-            last_user_offset,
-            last_batch_number,
-            last_batch_user_min_created_at,
-            last_batch_user_max_created_at,
+            current_period_start,
+            current_period_end,
+            batch_number,
+            is_completed,
             last_run_at
         )
         VALUES
         (
-            %s,
-            0,
-            0,
-            NULL,
-            NULL,
-            NULL
+            %s, %s, %s, 0, FALSE, NULL
         )
         ON CONFLICT (pipeline_name)
         DO NOTHING;
         """
-        self.db.execute(sql, (pipeline_name,))
+        self.db.execute(sql, (pipeline_name, earliest_date, first_period_end))
 
     def get(self, pipeline_name: str):
-        """Get current pipeline state."""
+        """Get current pipeline state (Time Window)."""
         sql = f"""
         SELECT
-            last_user_offset,
-            last_batch_number,
-            last_batch_user_min_created_at,
-            last_batch_user_max_created_at,
+            current_period_start,
+            current_period_end,
+            batch_number,
+            is_completed,
             last_run_at
         FROM {self.full_table}
         WHERE pipeline_name = %s
@@ -60,38 +88,44 @@ class PipelineMetadata:
         row = self.db.fetchone()
         
         if row is None:
+            earliest_date = self.get_earliest_order_date()
             return {
-                "last_user_offset": 0,
-                "last_batch_number": 0,
-                "last_batch_user_min_created_at": None,
-                "last_batch_user_max_created_at": None,
+                "current_period_start": earliest_date,
+                "current_period_end": earliest_date + relativedelta(months=1),
+                "batch_number": 0,
+                "is_completed": False,
                 "last_run_at": None,
             }
 
         return {
-            "last_user_offset": row[0],
-            "last_batch_number": row[1],
-            "last_batch_user_min_created_at": row[2],
-            "last_batch_user_max_created_at": row[3],
+            "current_period_start": row[0],
+            "current_period_end": row[1],
+            "batch_number": row[2],
+            "is_completed": row[3],
             "last_run_at": row[4],
         }
         
-    def update(
-        self,
-        pipeline_name: str,
-        last_user_offset: int,
-        batch_number: int,
-        batch_min_created_at,
-        batch_max_created_at,
-    ):
-        """Update metadata after batch processing."""
+    def advance_time_window(self, pipeline_name: str):
+        """
+        Shift the time window forward by 1 month.
+        Checks if the new window exceeds the latest order in raw data.
+        """
+        current_state = self.get(pipeline_name)
+        next_start = current_state["current_period_end"]
+        next_end = next_start + relativedelta(months=1)
+        next_batch_number = current_state["batch_number"] + 1
+        
+        # Check against the absolute end of our dataset
+        latest_date_in_raw = self.get_latest_order_date()
+        is_completed = next_start >= latest_date_in_raw
+
         sql = f"""
         UPDATE {self.full_table}
         SET
-            last_user_offset = %s,
-            last_batch_number = %s,
-            last_batch_user_min_created_at = %s,
-            last_batch_user_max_created_at = %s,
+            current_period_start = %s,
+            current_period_end = %s,
+            batch_number = %s,
+            is_completed = %s,
             last_run_at = %s,
             updated_at = CURRENT_TIMESTAMP
         WHERE pipeline_name = %s
@@ -99,57 +133,36 @@ class PipelineMetadata:
         self.db.execute(
             sql,
             (
-                last_user_offset,
-                batch_number,
-                batch_min_created_at,
-                batch_max_created_at,
+                next_start,
+                next_end,
+                next_batch_number,
+                is_completed,
                 datetime.now(),
                 pipeline_name,
             ),
         )
+        
+        return {
+            "new_start": next_start,
+            "new_end": next_end,
+            "batch_number": next_batch_number,
+            "is_completed": is_completed
+        }
 
     def reset(self, pipeline_name: str):
-        """Reset pipeline metadata to initial state."""
+        """Reset pipeline metadata to the very beginning of time."""
+        earliest_date = self.get_earliest_order_date()
+        first_period_end = earliest_date + relativedelta(months=1)
+        
         sql = f"""
         UPDATE {self.full_table}
         SET
-            last_user_offset = 0,
-            last_batch_number = 0,
-            last_batch_user_min_created_at = NULL,
-            last_batch_user_max_created_at = NULL,
+            current_period_start = %s,
+            current_period_end = %s,
+            batch_number = 0,
+            is_completed = FALSE,
             last_run_at = NULL,
             updated_at = CURRENT_TIMESTAMP
         WHERE pipeline_name = %s
         """
-        self.db.execute(sql, (pipeline_name,))
-    
-    def validate_progress(self, pipeline_name: str, total_users_raw: int) -> dict:
-        """
-        Validate pipeline progress and determine completion status.
-        
-        Args:
-            pipeline_name: Name of the pipeline
-            total_users_raw: Total users in operational_raw
-            
-        Returns:
-            dict with keys:
-                - offset: current offset in raw schema
-                - total: total users in raw
-                - progress_pct: percentage progress (0-100)
-                - is_complete: whether pipeline is finished
-                - batch_number: current batch number
-        """
-        state = self.get(pipeline_name)
-        offset = state["last_user_offset"]
-        batch_number = state["last_batch_number"]
-        is_complete = offset >= total_users_raw
-        
-        progress_pct = (offset / total_users_raw * 100) if total_users_raw > 0 else 0
-        
-        return {
-            "offset": offset,
-            "total": total_users_raw,
-            "progress_pct": progress_pct,
-            "is_complete": is_complete,
-            "batch_number": batch_number,
-        }
+        self.db.execute(sql, (earliest_date, first_period_end, pipeline_name))

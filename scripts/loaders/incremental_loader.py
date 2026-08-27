@@ -1,28 +1,20 @@
 """
-Incremental Loader for Operational Schema (New Design).
+Incremental Loader for Operational Schema (Time-Based & Dependency Injection).
 
 Architecture:
     - operational_raw: immutable source (all data from CSV)
-    - operational: built incrementally, batch by batch
-    - metadata: tracks offset into operational_raw
+    - operational: built incrementally, month by month (Time Window)
+    - metadata: tracks the current time period (start_date to end_date)
     
 Flow:
-    1. Get current offset from metadata
-    2. Load next batch of users from operational_raw (OFFSET-based)
-    3. Load dependencies (orders, order_items, events) for those users
-    4. Load inventory items required by order_items (by ID, not by date)
-    5. Detect OUT-OF-STOCK items (order_items referencing missing inventory)
-    6. Split order_items: in_stock + out_of_stock
-    7. Insert to operational schema (graceful handling, no hard failures)
-    8. Update metadata offset
-    9. Repeat until offset reaches total users in raw
-
-Design principle:
-    - Metadata offset is meaningful (tracks progress in raw)
-    - operational starts empty, built incrementally
-    - No duplicates (operational_raw is immutable source)
-    - OUT-OF-STOCK items are BUSINESS INSIGHTS (track separately, don't fail)
-    - FK integrity maintained through graceful out-of-stock detection
+    1. Get current time window (current_period_start to current_period_end) from metadata.
+    2. Load independent events for this month (users, orders, events).
+    3. Load dependent entities based strictly on FK (order_items based on order_ids).
+    4. Load physical inventory based strictly on FK (inventory_items based on order_items).
+    5. Detect OUT-OF-STOCK items.
+    6. Insert to operational schema gracefully.
+    7. Update metadata to the next month.
+    8. Repeat until the current_period reaches the latest data in raw.
 """
 
 from scripts.common.postgres import Postgres
@@ -35,18 +27,11 @@ logger = get_logger(__name__)
 
 
 class IncrementalLoader:
-    """
-    Load data incrementally from operational_raw to operational.
-    One run = one batch of users.
-    
-    Gracefully handles out-of-stock scenarios without hard failures.
-    """
-
     def __init__(self):
         self.pipeline_name = PIPELINE["pipeline_name"]
 
     def run(self):
-        """Execute one batch of incremental loading."""
+        """Execute one batch (1 month) of incremental loading."""
         logger.info("=" * 80)
         logger.info(f"INCREMENTAL LOADER STARTED | Pipeline: {self.pipeline_name}")
         logger.info("=" * 80)
@@ -57,159 +42,109 @@ class IncrementalLoader:
                 repository = OperationalRepository(db)
 
                 # ====================================================================
-                # STEP 1: Initialize metadata (first run only)
+                # STEP 1: Initialize metadata (idempotent - safe to run multiple times)
                 # ====================================================================
                 metadata.initialize(pipeline_name=self.pipeline_name)
 
                 # ====================================================================
-                # STEP 2: Get current state from metadata
+                # STEP 2: Get current time window state from metadata
                 # ====================================================================
                 state = metadata.get(pipeline_name=self.pipeline_name)
-                last_offset = state["last_user_offset"]
-                last_batch_number = state["last_batch_number"]
+                start_date = state["current_period_start"]
+                end_date = state["current_period_end"]
+                batch_number = state["batch_number"]
+                is_completed = state["is_completed"]
 
-                logger.info("-" * 80)
-                logger.info(f"Current State:")
-                logger.info(f"  Offset: {last_offset}")
-                logger.info(f"  Batch #: {last_batch_number}")
-                logger.info("-" * 80)
-
-                # ====================================================================
-                # STEP 3: Check total users and validate progress
-                # ====================================================================
-                total_users = repository.get_total_users_in_raw()
-                progress = metadata.validate_progress(self.pipeline_name, total_users)
-
-                logger.info(f"Pipeline Progress: {progress['offset']}/{progress['total']} users")
-                logger.info(f"Progress: {progress['progress_pct']:.2f}%")
-                logger.info(f"Completed: {progress['is_complete']}")
-
-                if progress["is_complete"]:
+                if is_completed:
                     logger.info("=" * 80)
-                    logger.info("✓ PIPELINE COMPLETE | All users already processed")
+                    logger.info("✓ PIPELINE COMPLETE | All historical data has been processed.")
                     logger.info("=" * 80)
                     return
 
-                # ====================================================================
-                # STEP 4: Load next batch from raw schema
-                # ====================================================================
-                logger.info("=" * 80)
-                logger.info(f"LOADING BATCH #{last_batch_number + 1}")
-                logger.info(f"Offset: {last_offset} | Batch Size: {repository.batch_size}")
-                logger.info("=" * 80)
-
-                users_df = repository.get_user_batch(offset=last_offset)
-
-                # Check if there are more users to process
-                if users_df.empty:
-                    logger.info("=" * 80)
-                    logger.info("✓ NO MORE USERS | Pipeline finished")
-                    logger.info("=" * 80)
-                    return
-
-                logger.info(f"✓ Batch loaded: {len(users_df)} users")
-
-                # ====================================================================
-                # STEP 5: Load dependencies from raw schema
-                # ====================================================================
                 logger.info("-" * 80)
-                logger.info("Loading dependencies...")
+                logger.info(f"Current Batch: #{batch_number + 1}")
+                logger.info(f"Time Window  : {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
                 logger.info("-" * 80)
 
-                user_ids = users_df["id"].tolist()
-                orders_df = repository.get_orders_by_users(user_ids=user_ids)
+                # ====================================================================
+                # STEP 3: Load Independent Entities for this Time Window
+                # ====================================================================
+                users_df = repository.get_users_by_time(start_date=start_date, end_date=end_date)
+                orders_df = repository.get_orders_by_time(start_date=start_date, end_date=end_date)
+                events_df = repository.get_events_by_time(start_date=start_date, end_date=end_date)
+
+                # ====================================================================
+                # STEP 4: Load Dependencies (Dependency Injection / FK-based)
+                # ====================================================================
+                logger.info("-" * 80)
+                logger.info("Loading Relational Dependencies...")
+                logger.info("-" * 80)
+
+                # Tarik order items yang bereferensi ke order di bulan ini
                 order_ids = orders_df["order_id"].tolist() if not orders_df.empty else []
                 order_items_df = repository.get_order_items_by_orders(order_ids=order_ids)
-                events_df = repository.get_events_by_users(user_ids=user_ids)
                 
-                # Load inventory items referenced by order_items
+                # Tarik inventory yang bereferensi ke order items di bulan ini
                 inventory_item_ids = order_items_df["inventory_item_id"].tolist() if not order_items_df.empty else []
                 inventory_df = repository.get_inventory_by_ids(inventory_ids=inventory_item_ids)
                 available_inventory_ids = inventory_df["id"].tolist() if not inventory_df.empty else []
-                
-                batch_min_created_at = users_df["created_at"].min()
-                batch_max_created_at = users_df["created_at"].max()
 
                 logger.info("-" * 80)
-                logger.info("Dependencies loaded:")
-                logger.info(f"  Users:       {len(users_df)}")
-                logger.info(f"  Orders:      {len(orders_df)}")
-                logger.info(f"  Order Items: {len(order_items_df)}")
-                logger.info(f"  Events:      {len(events_df)}")
-                logger.info(f"  Inventory:   {len(inventory_df)}")
+                logger.info("Data loaded for this window:")
+                logger.info(f"  Users       : {len(users_df)}")
+                logger.info(f"  Orders      : {len(orders_df)}")
+                logger.info(f"  Order Items : {len(order_items_df)}")
+                logger.info(f"  Events      : {len(events_df)}")
+                logger.info(f"  Inventory   : {len(inventory_df)}")
                 logger.info("-" * 80)
 
                 # ====================================================================
-                # STEP 6: Detect OUT-OF-STOCK items (graceful handling)
+                # STEP 5: Detect OUT-OF-STOCK items
                 # ====================================================================
-                logger.info("-" * 80)
-                logger.info("Checking inventory availability...")
-                logger.info("-" * 80)
-
                 in_stock_items, out_of_stock_items = repository.detect_out_of_stock_items(
                     order_items_df=order_items_df,
                     available_inventory_ids=available_inventory_ids
                 )
 
                 # ====================================================================
-                # STEP 7: Insert data to operational schema
+                # STEP 6: Insert data to operational schema
                 # ====================================================================
                 logger.info("=" * 80)
                 logger.info("INSERTING TO OPERATIONAL SCHEMA")
                 logger.info("=" * 80)
 
-                # Load order of operations matters (FK dependencies)
+                # Urutan Load SANGAT PENTING untuk Foreign Key Integrity
                 repository.insert_users(users_df=users_df)
                 repository.insert_orders(orders_df=orders_df)
-                repository.insert_inventory(inventory_df=inventory_df)
-                repository.insert_order_items(order_items_df=in_stock_items)  # Only in-stock items
-                repository.insert_order_items_out_of_stock(out_of_stock_df=out_of_stock_items)  # Out-of-stock items
+                
+                repository.insert_order_items(order_items_df=in_stock_items)
+                repository.insert_order_items_out_of_stock(out_of_stock_df=out_of_stock_items)
                 repository.insert_events(events_df=events_df)
 
-                # Update inventory sold_at based on in-stock order_items
+                # Update status barang jadi 'Sold'
                 repository.update_inventory_sold_at(order_items_df=in_stock_items)
 
-                logger.info("=" * 80)
-                logger.info("✓ BATCH DATA INSERTED SUCCESSFULLY")
-                logger.info("=" * 80)
-
                 # ====================================================================
-                # STEP 8: Update metadata
+                # STEP 7: Advance Time Window (Update Metadata)
                 # ====================================================================
                 logger.info("-" * 80)
-                logger.info("Updating metadata...")
-                logger.info("-" * 80)
-
-                next_offset = last_offset + len(users_df)
-                next_batch_number = last_batch_number + 1
-
-                metadata.update(
-                    pipeline_name=self.pipeline_name,
-                    last_user_offset=next_offset,
-                    batch_number=next_batch_number,
-                    batch_min_created_at=batch_min_created_at,
-                    batch_max_created_at=batch_max_created_at,
-                )
-
-                logger.info(f"  Offset:        {last_offset} → {next_offset}")
-                logger.info(f"  Batch Number:  {last_batch_number} → {next_batch_number}")
-                logger.info(f"  Progress:      {next_offset}/{total_users} users ({next_offset/total_users*100:.2f}%)")
+                logger.info("Advancing Time Window to next month...")
+                
+                new_state = metadata.advance_time_window(pipeline_name=self.pipeline_name)
+                
+                logger.info(f"  Next Start : {new_state['new_start'].strftime('%Y-%m-%d')}")
+                logger.info(f"  Next End   : {new_state['new_end'].strftime('%Y-%m-%d')}")
                 logger.info("-" * 80)
 
                 # ====================================================================
                 # SUMMARY
                 # ====================================================================
                 logger.info("=" * 80)
-                logger.info(f"✓ BATCH #{next_batch_number} COMPLETED SUCCESSFULLY")
-                logger.info(f"  Users:           {len(users_df)}")
-                logger.info(f"  In-Stock Items:  {len(in_stock_items)}")
-                logger.info(f"  Out-of-Stock:    {len(out_of_stock_items)}")
-                logger.info(f"  Progress:        {next_offset}/{total_users} users ({next_offset/total_users*100:.2f}%)")
-                logger.info(f"  Remaining:       {total_users - next_offset} users")
-                if next_offset >= total_users:
-                    logger.info(f"  Status:          ✓ PIPELINE COMPLETE")
+                logger.info(f"✓ BATCH #{batch_number + 1} ({start_date.strftime('%b %Y')}) COMPLETED SUCCESSFULLY")
+                if new_state["is_completed"]:
+                    logger.info(f"  Status     : ✓ PIPELINE COMPLETE (Reached present/latest data)")
                 else:
-                    logger.info(f"  Status:          Continue to next batch")
+                    logger.info(f"  Status     : Continue to next month in next run")
                 logger.info("=" * 80)
 
         except Exception as e:

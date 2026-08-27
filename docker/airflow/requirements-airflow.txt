@@ -1,16 +1,29 @@
+# Core Data Manipulation & Scientific Computing
 pandas
 numpy
+polars
 scikit-learn
 
+# Machine Learning & Optimization
+xgboost
+lightgbm
+optuna
+category-encoders
+seaborn
+
+# Visualization (Evaluator Plotting)
+matplotlib
+
+# Database & Storage
 sqlalchemy
 psycopg2-binary
 psycopg[binary]
-
 joblib
 
-xgboost
-lightgbm
-
+# MLOps & Tracking
 mlflow
 
+# Utilities & Infrastructure
 python-dotenv
+dbt-core
+dbt-postgres

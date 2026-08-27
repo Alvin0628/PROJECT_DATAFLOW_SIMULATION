@@ -1,0 +1,12 @@
+gold_layer_models:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres_warehouse
+      user: postgres_warehouse
+      password: WH721HDA
+      port: 5432
+      dbname: Looker_ECommerce
+      schema: public
+      threads: 4

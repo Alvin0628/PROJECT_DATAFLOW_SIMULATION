@@ -3,3 +3,11 @@ pandas
 numpy 
 python-dotenv
 psycopg
+polars
+pyarrow
+seaborn 
+matplotlib
+pyarrow
+scikit-learn
+category_encoders
+xgboost
