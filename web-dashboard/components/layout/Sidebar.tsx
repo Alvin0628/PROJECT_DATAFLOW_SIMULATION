@@ -19,7 +19,7 @@ const ANALYTICS_ITEMS = [
 function NavSection({ label, items, pathname, accent }: { label: string; items: typeof MLOPS_ITEMS; pathname: string; accent: "blue" | "green" }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 px-3 pb-1 text-[10px] font-bold tracking-[0.16em] text-slate-500">
+      <div className="flex items-center gap-2 px-3 pb-1 text-[10px] font-bold tracking-[0.16em] text-muted">
         <span className={`h-1.5 w-1.5 rounded-full ${accent === "blue" ? "bg-blue-400" : "bg-emerald-400"}`} />
         {label}
       </div>
