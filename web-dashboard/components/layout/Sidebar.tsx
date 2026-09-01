@@ -1,124 +1,65 @@
-"use client"; // Wajib karena kita butuh hook navigasi dari browser
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// 1. Kategori Menu Pertama: MLOps & Data Engineering
 const MLOPS_ITEMS = [
-  { name: "System Overview", href: "/" },
-  { name: "Model Performance", href: "/models" },
-  { name: "Actionable Predictions", href: "/predictions" },
-  { name: "Pipeline Orchestration", href: "/pipelines" },
+  { name: "System Overview", href: "/", mark: "01" },
+  { name: "Model Performance", href: "/models", mark: "02" },
+  { name: "Actionable Predictions", href: "/predictions", mark: "03" },
+  { name: "Pipeline Orchestration", href: "/pipelines", mark: "04" },
 ];
 
-// 2. Kategori Menu Kedua: Business Intelligence (Data Marts)
 const ANALYTICS_ITEMS = [
-  { name: "Sales & Revenue", href: "/analytics/sales-revenue" },
-  { name: "Logistics SLA", href: "/analytics/logistics-sla" },
-  { name: "User Funnel", href: "/analytics/user-funnel" },
+  { name: "Sales & Revenue", href: "/analytics/sales-revenue", mark: "01" },
+  { name: "Logistics SLA", href: "/analytics/logistics-sla", mark: "02" },
+  { name: "User Funnel", href: "/analytics/user-funnel", mark: "03" },
 ];
+
+function NavSection({ label, items, pathname, accent }: { label: string; items: typeof MLOPS_ITEMS; pathname: string; accent: "blue" | "green" }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 px-3 pb-1 text-[10px] font-bold tracking-[0.16em] text-slate-500">
+        <span className={`h-1.5 w-1.5 rounded-full ${accent === "blue" ? "bg-blue-400" : "bg-emerald-400"}`} />
+        {label}
+      </div>
+      <div className="flex flex-col gap-1">
+        {items.map((item) => {
+          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link key={item.href} href={item.href} className={`group relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium transition-colors ${isActive ? (accent === "blue" ? "bg-blue-500/15 text-blue-100" : "bg-emerald-500/15 text-emerald-100") : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-100"}`}>
+              <span className={`font-mono text-[10px] ${isActive ? (accent === "blue" ? "text-blue-300" : "text-emerald-300") : "text-slate-600 group-hover:text-slate-400"}`}>{item.mark}</span>
+              <span className="truncate">{item.name}</span>
+              {isActive && <span className={`absolute inset-y-2 left-0 w-0.5 rounded-full ${accent === "blue" ? "bg-blue-400" : "bg-emerald-400"}`} />}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function Sidebar() {
-  const pathname = usePathname(); // Mengambil URL yang sedang aktif
-
+  const pathname = usePathname();
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen border-r border-slate-800 shrink-0">
-      {/* HEADER LOGO */}
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-base font-bold text-white tracking-tight flex items-start gap-3">
-          <svg
-            className="w-6 h-6 text-blue-500 shrink-0 mt-0.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-            />
-          </svg>
-          <span className="leading-snug">Data Flow Simulation Dashboard</span>
-        </h1>
-        <p className="text-xs text-slate-500 mt-2 font-medium pl-9">
-          Evaluation Center
-        </p>
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-950 text-slate-300 lg:flex">
+      <div className="border-b border-slate-800 px-6 py-6">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-blue-500/15 font-mono text-xs font-bold text-blue-300">DF</div>
+          <div>
+            <h1 className="text-sm font-bold leading-tight tracking-tight text-white">Data Flow Simulation</h1>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">Evaluation Center</p>
+          </div>
+        </div>
       </div>
-
-      {/* MENU NAVIGASI */}
-      <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
-        {/* BAGIAN 1: MACHINE LEARNING */}
-        <div className="space-y-1">
-          <div className="text-xs font-semibold text-slate-500 mb-3 px-2 tracking-wider">
-            MACHINE LEARNING
-          </div>
-          {MLOPS_ITEMS.map((item) => {
-            // Logika active: spesial untuk "/" harus exact match, sisanya pakai startsWith agar nested route tetap aktif
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  block px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    isActive
-                      ? "bg-blue-600 text-white shadow-sm" // Style aktif
-                      : "hover:bg-slate-800 hover:text-white" // Style tidak aktif
-                  }
-                `}
-              >
-                {item.name}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* BAGIAN 2: BUSINESS INSIGHTS */}
-        <div className="space-y-1">
-          <div className="text-xs font-semibold text-slate-500 mb-3 px-2 tracking-wider">
-            BUSINESS INSIGHTS
-          </div>
-          {ANALYTICS_ITEMS.map((item) => {
-            const isActive = pathname.startsWith(item.href);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  block px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${
-                    isActive
-                      ? "bg-emerald-600 text-white shadow-sm" // Membedakan warna agar terasa beda konteks
-                      : "hover:bg-slate-800 hover:text-white"
-                  }
-                `}
-              >
-                {item.name}
-              </Link>
-            );
-          })}
-        </div>
+      <nav className="flex flex-1 flex-col gap-8 overflow-y-auto px-3 py-7" aria-label="Primary navigation">
+        <NavSection label="MACHINE LEARNING" items={MLOPS_ITEMS} pathname={pathname} accent="blue" />
+        <NavSection label="BUSINESS INTELLIGENCE" items={ANALYTICS_ITEMS} pathname={pathname} accent="green" />
       </nav>
-
-      {/* FOOTER STATUS LIVE */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/50">
+      <div className="border-t border-slate-800 bg-slate-900/50 px-5 py-5">
         <div className="flex items-center gap-3">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <div className="text-xs">
-            <p className="text-slate-300 font-medium">System Online</p>
-            <p className="text-slate-500">Connected to Supabase</p>
-          </div>
+          <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+          <div><p className="text-xs font-semibold text-slate-200">System online</p><p className="mt-0.5 font-mono text-[10px] text-slate-500">SUPABASE CONNECTED</p></div>
         </div>
       </div>
     </aside>

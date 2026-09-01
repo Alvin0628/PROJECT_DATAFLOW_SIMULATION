@@ -1,104 +1,18 @@
 export default function ArchitectureNarrative() {
+  const stages = [
+    { n: "01", title: "Data layer", subtitle: "Medallion architecture", accent: "bg-amber-500", items: ["Bronze · raw", "Silver · clean", "Gold · features"] },
+    { n: "02", title: "Orchestrator", subtitle: "Apache Airflow", accent: "bg-rose-500", items: ["Trigger DAGs", "Task routing", "Error handling"] },
+    { n: "03", title: "ML pipeline", subtitle: "Docker-out-of-Docker", accent: "bg-blue-500", items: ["Train model", "Quality gate", "Persist metrics"] },
+    { n: "04", title: "Serving", subtitle: "Next.js UI", accent: "bg-emerald-500", items: ["REST API", "Actionable insight", "Dynamic export"] },
+  ];
   return (
-    <div className="space-y-8">
-      {/* 1. HEADER & TECH PILLS */}
-      <div>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-          Data Flow Simulation & MLOps Pipeline
-        </h2>
-        <p className="text-slate-500 mt-2 text-lg">
-          End-to-end Machine Learning Operations with automated training and quality gates.
-        </p>
-        
-        {/* Tech Stack Pills */}
-        <div className="flex flex-wrap gap-2 mt-5">
-          <span className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-md border border-blue-200 shadow-sm flex items-center gap-1.5">
-            <span>⚡</span> Next.js 16 (App Router)
-          </span>
-          <span className="px-3 py-1.5 bg-red-50 text-red-700 text-xs font-bold rounded-md border border-red-200 shadow-sm flex items-center gap-1.5">
-            <span>🌪️</span> Apache Airflow
-          </span>
-          <span className="px-3 py-1.5 bg-sky-50 text-sky-700 text-xs font-bold rounded-md border border-sky-200 shadow-sm flex items-center gap-1.5">
-            <span>🐳</span> Docker (DooD)
-          </span>
-          <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-md border border-emerald-200 shadow-sm flex items-center gap-1.5">
-            <span>🐘</span> PostgreSQL (Medallion)
-          </span>
-          <span className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-bold rounded-md border border-purple-200 shadow-sm flex items-center gap-1.5">
-            <span>🤖</span> ML Quality Gates
-          </span>
-        </div>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4 border-b border-border pb-7 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl"><p className="dashboard-eyebrow">System overview / production topology</p><h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground md:text-4xl">Data Flow Simulation <span className="text-muted">&amp; MLOps Pipeline</span></h1><p className="mt-3 max-w-xl text-sm leading-6 text-muted">End-to-end machine learning operations with automated training, quality gates, and business-ready outputs.</p></div>
+        <div className="flex shrink-0 items-center gap-2 rounded-md border border-success/20 bg-success-soft px-3 py-2 text-xs font-semibold text-success"><span className="size-2 rounded-full bg-success" />Live environment</div>
       </div>
-
-      {/* 2. EXECUTIVE SUMMARY */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 leading-relaxed text-slate-600 text-sm">
-        <p>
-          Proyek ini mendemonstrasikan ekosistem MLOps produksi berskala penuh. Menggunakan pendekatan <strong>Medallion Architecture</strong>, 
-          data mentah diproses dari tahap Bronze hingga Gold. Sistem secara otomatis mendeteksi perubahan data, memicu orkestrasi 
-          pelatihan model <em>(Continuous Training)</em> di dalam kontainer terisolasi, mengevaluasinya melalui <em>Quality Gate</em> yang ketat, 
-          dan menyajikannya menjadi wawasan bisnis yang <em>actionable</em> secara real-time.
-        </p>
-      </div>
-
-      {/* 3. ARCHITECTURE DIAGRAM (CSS Grid Flow) */}
-      <div>
-        <h3 className="text-sm font-bold text-slate-400 tracking-widest uppercase mb-4">Pipeline Architecture</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          
-          {/* Box 1: Data Layer */}
-          <div className="bg-white border-2 border-slate-100 rounded-xl p-5 shadow-sm hover:border-blue-300 transition-colors relative group">
-            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-bold mb-3">1</div>
-            <h4 className="font-semibold text-slate-800 text-sm">Data Layer</h4>
-            <p className="text-xs text-slate-500 mt-1 font-mono">Medallion Arch</p>
-            <ul className="mt-3 text-xs text-slate-500 space-y-1">
-              <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Bronze (Raw)</li>
-              <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Silver (Clean)</li>
-              <li className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span> Gold (Features)</li>
-            </ul>
-            {/* Panah (Hanya terlihat di desktop) */}
-            <div className="hidden md:block absolute -right-3.5 top-1/2 -translate-y-1/2 text-slate-300 z-10 group-hover:text-blue-400 transition-colors">➔</div>
-          </div>
-
-          {/* Box 2: Orchestrator */}
-          <div className="bg-white border-2 border-slate-100 rounded-xl p-5 shadow-sm hover:border-red-300 transition-colors relative group">
-            <div className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center font-bold mb-3">2</div>
-            <h4 className="font-semibold text-slate-800 text-sm">Orchestrator</h4>
-            <p className="text-xs text-slate-500 mt-1 font-mono">Apache Airflow</p>
-            <ul className="mt-3 text-xs text-slate-500 space-y-1">
-              <li>✓ Trigger DAGs</li>
-              <li>✓ Task Routing</li>
-              <li>✓ Error Handling</li>
-            </ul>
-            <div className="hidden md:block absolute -right-3.5 top-1/2 -translate-y-1/2 text-slate-300 z-10 group-hover:text-red-400 transition-colors">➔</div>
-          </div>
-
-          {/* Box 3: ML Pipeline */}
-          <div className="bg-white border-2 border-slate-100 rounded-xl p-5 shadow-sm hover:border-sky-300 transition-colors relative group">
-            <div className="w-8 h-8 bg-sky-100 text-sky-600 rounded-lg flex items-center justify-center font-bold mb-3">3</div>
-            <h4 className="font-semibold text-slate-800 text-sm">ML Pipeline</h4>
-            <p className="text-xs text-slate-500 mt-1 font-mono">Docker-out-of-Docker</p>
-            <ul className="mt-3 text-xs text-slate-500 space-y-1">
-              <li>✓ Train Model</li>
-              <li>✓ Quality Gate Check</li>
-              <li>✓ Save Metrics to DB</li>
-            </ul>
-            <div className="hidden md:block absolute -right-3.5 top-1/2 -translate-y-1/2 text-slate-300 z-10 group-hover:text-sky-400 transition-colors">➔</div>
-          </div>
-
-          {/* Box 4: Serving */}
-          <div className="bg-white border-2 border-slate-100 rounded-xl p-5 shadow-sm hover:border-emerald-300 transition-colors relative">
-            <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center font-bold mb-3">4</div>
-            <h4 className="font-semibold text-slate-800 text-sm">Serving</h4>
-            <p className="text-xs text-slate-500 mt-1 font-mono">Next.js UI</p>
-            <ul className="mt-3 text-xs text-slate-500 space-y-1">
-              <li>✓ Fetch REST API</li>
-              <li>✓ Actionable Insights</li>
-              <li>✓ Dynamic Export</li>
-            </ul>
-          </div>
-
-        </div>
-      </div>
+      <div className="dashboard-panel flex flex-col gap-3 p-5 text-sm leading-6 text-muted md:p-6"><p><strong className="text-foreground">Executive summary.</strong> This production-scale MLOps ecosystem moves raw data from Bronze to Gold, detects changes, triggers isolated continuous training, evaluates candidates through strict quality gates, and publishes actionable insights in near real time.</p><div className="flex flex-wrap gap-2 pt-2"><span className="rounded-md bg-primary-soft px-2.5 py-1 font-mono text-[11px] font-semibold text-primary">NEXT.JS 16</span><span className="rounded-md bg-surface-muted px-2.5 py-1 font-mono text-[11px] font-semibold text-muted">AIRFLOW</span><span className="rounded-md bg-surface-muted px-2.5 py-1 font-mono text-[11px] font-semibold text-muted">POSTGRESQL</span><span className="rounded-md bg-surface-muted px-2.5 py-1 font-mono text-[11px] font-semibold text-muted">QUALITY GATES</span></div></div>
+      <div className="flex flex-col gap-4"><div><p className="dashboard-eyebrow">Pipeline architecture</p><h2 className="mt-1 text-lg font-bold text-foreground">From source data to decision surface</h2></div><div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">{stages.map((stage) => <div key={stage.n} className="dashboard-panel group relative p-5 transition-shadow hover:shadow-md"><div className={`mb-5 flex size-9 items-center justify-center rounded-md ${stage.accent} text-xs font-bold text-white`}>{stage.n}</div><h3 className="font-bold text-foreground">{stage.title}</h3><p className="mt-1 font-mono text-[11px] text-muted">{stage.subtitle}</p><ul className="mt-4 flex flex-col gap-2 text-xs text-muted">{stage.items.map((item) => <li key={item} className="flex items-center gap-2"><span className="size-1.5 rounded-full bg-border-strong" />{item}</li>)}</ul></div>)}</div></div>
     </div>
   );
 }

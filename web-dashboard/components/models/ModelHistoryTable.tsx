@@ -1,104 +1,15 @@
 import { getBaseUrl } from "@/lib/get-base-url";
 import type { ModelMetrics, ApiResponse } from "@/types/Database.types";
 import MetricsHistoryChart from "./MetricsHistoryChart";
-import Link from "next/link"; // <-- 1. Import Link dari Next.js
+import Link from "next/link";
 
-interface ModelHistoryTableProps {
-  modelName: "customer_churn" | "session_conversion";
-}
+interface ModelHistoryTableProps { modelName: "customer_churn" | "session_conversion"; }
 
-export default async function ModelHistoryTable({
-  modelName,
-}: ModelHistoryTableProps) {
-  const res = await fetch(
-    `${getBaseUrl()}/api/metrics?model_name=${modelName}`,
-    {
-      cache: "no-store",
-    },
-  );
+export default async function ModelHistoryTable({ modelName }: ModelHistoryTableProps) {
+  const res = await fetch(`${getBaseUrl()}/api/metrics?model_name=${modelName}`, { cache: "no-store" });
   const body: ApiResponse<ModelMetrics[]> = await res.json();
-
-  if (body.error) {
-    return (
-      <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm">
-        Gagal memuat riwayat model: {body.error}
-      </div>
-    );
-  }
-
+  if (body.error) return <div className="m-5 rounded-md border border-danger/30 bg-danger-soft p-4 text-sm text-danger">Unable to load model history: {body.error}</div>;
   const data = body.data ?? [];
-
-  if (data.length === 0) {
-    return (
-      <div className="p-8 text-center bg-slate-50 border border-dashed rounded-lg text-slate-500 text-sm">
-        Belum ada riwayat training untuk model ini.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col">
-      <MetricsHistoryChart data={data} />
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 text-slate-600 border-b">
-            <tr>
-              <th className="py-3 px-4 font-semibold">Batch</th>
-              <th className="py-3 px-4 font-semibold">Trained At</th>
-              <th className="py-3 px-4 font-semibold">F1 Macro</th>
-              <th className="py-3 px-4 font-semibold">PR-AUC</th>
-              <th className="py-3 px-4 font-semibold">Quality Gate</th>
-              <th className="py-3 px-4 font-semibold">Role</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.map((m) => (
-              <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                {/* 2. Ubah kolom Batch menjadi Link yang bisa diklik */}
-                <td className="py-3 px-4">
-                  <Link
-                    href={`/models/${modelName}/${m.batch_number}`}
-                    className="text-blue-600 font-semibold hover:text-blue-800 hover:underline inline-flex items-center gap-1"
-                  >
-                    #{m.batch_number} <span className="text-xs">&rarr;</span>
-                  </Link>
-                </td>
-
-                <td className="py-3 px-4 text-slate-500">
-                  {new Date(m.trained_at).toLocaleString("id-ID")}
-                </td>
-                <td className="py-3 px-4 font-mono">
-                  {m.f1_macro?.toFixed(4) ?? "-"}
-                </td>
-                <td className="py-3 px-4 font-mono">
-                  {m.pr_auc?.toFixed(4) ?? "-"}
-                </td>
-                <td className="py-3 px-4">
-                  {m.quality_gate_passed ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                      PASSED
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                      FAILED
-                    </span>
-                  )}
-                </td>
-                <td className="py-3 px-4">
-                  {m.is_champion ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                      Champion
-                    </span>
-                  ) : (
-                    <span className="text-slate-400 text-xs">Challenger</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  if (!data.length) return <div className="p-10 text-center font-mono text-xs text-muted">NO TRAINING RUNS FOUND</div>;
+  return <div className="flex flex-col"><div className="border-b border-border px-5 py-4 md:px-6"><p className="dashboard-eyebrow">Evaluation trend</p><MetricsHistoryChart data={data} /></div><div className="overflow-x-auto"><table className="dashboard-table w-full min-w-[700px] text-left text-sm"><thead><tr><th className="px-5 py-3">Batch</th><th className="px-5 py-3">Trained at</th><th className="px-5 py-3">F1 macro</th><th className="px-5 py-3">PR-AUC</th><th className="px-5 py-3">Quality gate</th><th className="px-5 py-3">Role</th></tr></thead><tbody>{data.map((m) => <tr key={m.id}><td className="px-5 py-4"><Link href={`/models/${modelName}/${m.batch_number}`} className="font-mono text-xs font-bold text-primary hover:underline">B#{m.batch_number} →</Link></td><td className="px-5 py-4 text-xs text-muted">{new Date(m.trained_at).toLocaleString("id-ID")}</td><td className="px-5 py-4 font-mono text-xs">{m.f1_macro?.toFixed(4) ?? "-"}</td><td className="px-5 py-4 font-mono text-xs">{m.pr_auc?.toFixed(4) ?? "-"}</td><td className="px-5 py-4"><span className={`rounded-md px-2 py-1 font-mono text-[10px] font-bold ${m.quality_gate_passed ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>{m.quality_gate_passed ? "PASSED" : "FAILED"}</span></td><td className="px-5 py-4">{m.is_champion ? <span className="rounded-md bg-warning-soft px-2 py-1 font-mono text-[10px] font-bold text-warning">CHAMPION</span> : <span className="font-mono text-[10px] text-muted">CHALLENGER</span>}</td></tr>)}</tbody></table></div></div>;
 }

@@ -131,7 +131,7 @@ export default async function LogisticsSLADashboard() {
   );
 
   return (
-    <div className="space-y-6 bg-slate-50 min-h-screen p-6 rounded-xl border border-slate-200">
+    <div className="flex min-h-screen flex-col gap-6 rounded-lg border border-border bg-surface p-5 shadow-sm md:p-7">
       <AutoRefresh intervalMs={60000} />
       {/* HEADER TITTLE */}
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between">

@@ -1,60 +1,9 @@
 import AutoRefresh from "@/components/AutoRefresh";
-import { Suspense } from 'react';
-import ModelHistoryTable from '@/components/models/ModelHistoryTable';
+import { Suspense } from "react";
+import ModelHistoryTable from "@/components/models/ModelHistoryTable";
+
+const models = [{ name: "Session Conversion", key: "session_conversion", detail: "Predictive signal quality and champion history." }, { name: "Customer Churn", key: "customer_churn", detail: "Quality-gated challenger evaluation history." }] as const;
 
 export default function ModelsPage() {
-  return (
-    <div className="space-y-8">
-      <AutoRefresh intervalMs={60000} />
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Model Performance</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Riwayat lengkap setiap siklus training -- termasuk Challenger yang
-          gagal lolos quality gate. Ini seluruh jejak keputusan
-          Champion/Challenger dari waktu ke waktu, bukan cuma model yang
-          sedang aktif.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="font-semibold text-slate-800">Session Conversion</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Model dengan sinyal prediktif kuat -- lolos quality gate secara konsisten.
-          </p>
-        </div>
-        <Suspense
-          fallback={
-            <div className="p-8 text-center text-slate-400 text-sm animate-pulse">
-              Memuat riwayat...
-            </div>
-          }
-        >
-          <ModelHistoryTable modelName="session_conversion" />
-        </Suspense>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="font-semibold text-slate-800">Customer Churn</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Analisis Mutual Information menunjukkan tidak ada fitur yang
-            berkorelasi signifikan dengan target -- data sintetis untuk use
-            case ini tidak memiliki struktur kausal yang bisa dipelajari.
-            Quality gate secara konsisten menolak promosi model ini, sesuai
-            desain.
-          </p>
-        </div>
-        <Suspense
-          fallback={
-            <div className="p-8 text-center text-slate-400 text-sm animate-pulse">
-              Memuat riwayat...
-            </div>
-          }
-        >
-          <ModelHistoryTable modelName="customer_churn" />
-        </Suspense>
-      </div>
-    </div>
-  );
+  return <div className="flex flex-col gap-8 pb-10"><AutoRefresh intervalMs={60000} /><header><p className="dashboard-eyebrow">Machine learning / model registry</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Model performance</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">A complete training history for every model, including challenger runs that did not pass the quality gate.</p></header><div className="flex flex-col gap-5">{models.map((model) => <section key={model.key} className="dashboard-panel overflow-hidden"><div className="flex flex-col gap-1 border-b border-border bg-surface-muted/60 px-5 py-4 md:px-6"><h2 className="font-bold">{model.name}</h2><p className="text-xs text-muted">{model.detail}</p></div><Suspense fallback={<div className="p-8 text-center font-mono text-xs text-muted">LOADING TRAINING HISTORY...</div>}><ModelHistoryTable modelName={model.key} /></Suspense></section>)}</div></div>;
 }

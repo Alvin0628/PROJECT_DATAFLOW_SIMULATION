@@ -1,93 +1,12 @@
 import AutoRefresh from "@/components/AutoRefresh";
-import { getBaseUrl } from '@/lib/get-base-url';
+import { getBaseUrl } from "@/lib/get-base-url";
 
-// Tipe data balikan dari Airflow API
-interface AirflowDag {
-  dag_id: string;
-  is_active: boolean;
-  is_paused: boolean;
-  description: string | null;
-  owners: string[];
-  next_dagrun: string | null;
-}
+interface AirflowDag { dag_id: string; is_active: boolean; is_paused: boolean; description: string | null; owners: string[]; next_dagrun: string | null; }
 
 export default async function PipelinesPage() {
-  // Panggil API Proxy Next.js kita sendiri
-  const res = await fetch(`${getBaseUrl()}/api/airflow/dags`, { 
-    cache: 'no-store' 
-  });
-  
+  const res = await fetch(`${getBaseUrl()}/api/airflow/dags`, { cache: "no-store" });
   const body = await res.json();
-
-  if (body.error) {
-    return (
-      <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded-lg">
-        Gagal menghubungi Airflow: {body.error}
-      </div>
-    );
-  }
-
+  if (body.error) return <div className="dashboard-panel border-danger/30 bg-danger-soft p-5 text-sm text-danger">Unable to reach Airflow: {body.error}</div>;
   const dags: AirflowDag[] = body.data ?? [];
-
-  return (
-    <div className="space-y-8">
-      <AutoRefresh intervalMs={60000} />
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Pipeline Orchestration</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Integrasi langsung dengan Apache Airflow via REST API. Memantau status dan jadwal eksekusi DAG (Directed Acyclic Graph).
-        </p>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="font-semibold text-slate-800">Active DAGs</h2>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-600 border-b">
-              <tr>
-                <th className="py-3 px-4 font-semibold">DAG ID</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
-                <th className="py-3 px-4 font-semibold">Owner</th>
-                <th className="py-3 px-4 font-semibold">Next Run</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {dags.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-500">
-                    Tidak ada DAG yang ditemukan atau Airflow sedang mati.
-                  </td>
-                </tr>
-              )}
-              {dags.map((dag) => (
-                <tr key={dag.dag_id} className="hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium text-slate-900">{dag.dag_id}</td>
-                  <td className="py-3 px-4">
-                    {/* Logika Status Airflow: Jika is_paused true, berarti mati/off */}
-                    {dag.is_paused ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                        PAUSED
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                        ACTIVE
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-slate-500">{dag.owners.join(', ')}</td>
-                  <td className="py-3 px-4 text-slate-500 font-mono text-xs">
-                    {dag.next_dagrun ? new Date(dag.next_dagrun).toLocaleString('id-ID') : 'Not Scheduled'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-    </div>
-  );
+  return <div className="flex flex-col gap-8 pb-10"><AutoRefresh intervalMs={60000} /><header><p className="dashboard-eyebrow">Machine learning / orchestration</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Pipeline orchestration</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Live DAG status and scheduling telemetry from the Apache Airflow REST API.</p></header><section className="dashboard-panel overflow-hidden"><div className="flex items-center justify-between border-b border-border bg-surface-muted/60 px-5 py-4"><div><h2 className="font-bold">Active DAGs</h2><p className="mt-1 text-xs text-muted">{dags.length} workflows returned</p></div><span className="rounded-md bg-success-soft px-2 py-1 font-mono text-[10px] font-bold text-success">LIVE</span></div><div className="overflow-x-auto"><table className="dashboard-table w-full min-w-[680px] text-left text-sm"><thead><tr><th className="px-5 py-3 font-semibold">DAG ID</th><th className="px-5 py-3 font-semibold">Status</th><th className="px-5 py-3 font-semibold">Owner</th><th className="px-5 py-3 font-semibold">Next run</th></tr></thead><tbody>{dags.length === 0 ? <tr><td colSpan={4} className="px-5 py-10 text-center text-muted">No DAGs found or Airflow is unavailable.</td></tr> : dags.map((dag) => <tr key={dag.dag_id}><td className="px-5 py-4 font-mono text-xs font-semibold">{dag.dag_id}</td><td className="px-5 py-4"><span className={`rounded-md px-2 py-1 font-mono text-[10px] font-bold ${dag.is_paused ? "bg-surface-muted text-muted" : "bg-success-soft text-success"}`}>{dag.is_paused ? "PAUSED" : "ACTIVE"}</span></td><td className="px-5 py-4 text-muted">{dag.owners.join(", ")}</td><td className="px-5 py-4 font-mono text-xs text-muted">{dag.next_dagrun ? new Date(dag.next_dagrun).toLocaleString("id-ID") : "Not scheduled"}</td></tr>)}</tbody></table></div></section></div>;
 }
