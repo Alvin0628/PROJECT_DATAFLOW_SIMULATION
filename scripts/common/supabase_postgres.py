@@ -1,0 +1,182 @@
+import os
+from pathlib import Path
+import psycopg
+import io
+import pandas as pd
+from dotenv import load_dotenv
+
+from scripts.common.logger import get_logger
+
+# Load environment variables dari file .env di root folder
+load_dotenv()
+
+logger = get_logger(__name__)
+
+class SupabasePostgres:
+    def __init__(self):
+        self.conn = None
+        self.cursor = None
+        # Mengambil connection string dari .env
+        self.db_uri = os.environ.get("SUPABASE_DB_URI")
+
+    def connect(self):
+        if self.conn is None:
+            logger.info("Connecting to Supabase PostgreSQL...")
+            if not self.db_uri:
+                raise ValueError("SUPABASE_DB_URI belum diset di file .env!")
+            
+            # psycopg3 bisa langsung menerima connection string URI
+            self.conn = psycopg.connect(self.db_uri, prepare_threshold=None)
+            self.cursor = self.conn.cursor()
+            logger.info("Connected to Supabase successfully.")
+
+        return self
+
+    def __enter__(self):
+        return self.connect()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.rollback()
+        else:
+            self.commit()
+        self.close()
+
+    def execute(self, query, params=None):
+        self.cursor.execute(query, params)
+
+    def executemany(self, query, params):
+        self.cursor.executemany(query, params)
+
+    def fetchone(self):
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+
+    def execute_sql_file(self, sql_path: Path):
+        logger.info(f"Executing {sql_path.name}")
+        sql = sql_path.read_text(encoding="utf-8")
+        self.cursor.execute(sql)
+        
+    def execute_sql_template(
+        self,
+        sql_path: Path,
+        schema: str,
+    ):
+        logger.info(f"Executing template {sql_path.name} -> {schema}")
+        sql = sql_path.read_text(encoding="utf-8")
+        sql = sql.replace("{{SCHEMA}}", schema)
+        self.cursor.execute(sql)
+
+    def copy_csv(
+        self,
+        csv_path: Path,
+        schema: str,
+        table: str,
+        header: bool = True
+    ):
+        logger.info(f"COPY {table}")
+        with self.cursor.copy(
+            f"""
+            COPY {schema}.{table}
+            FROM STDIN
+            WITH (
+                FORMAT CSV,
+                HEADER {'TRUE' if header else 'FALSE'}
+            )
+            """
+        ) as copy:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                while data := f.read(8192):
+                    copy.write(data)
+                    
+        logger.info(f"{table} loaded successfully.")
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
+            self.cursor = None
+
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+            logger.info("Connection closed.")
+            
+    def copy_dataframe(
+        self,
+        dataframe: pd.DataFrame,
+        schema: str,
+        table: str,
+        columns: list[str],
+    ):
+        """
+        Bulk insert DataFrame into PostgreSQL using COPY.
+        """
+        if dataframe.empty:
+            logger.info(f"{table} is empty. Skip COPY.")
+            return
+
+        logger.info(f"COPY DataFrame -> {schema}.{table}")
+
+        buffer = io.StringIO()
+        dataframe.to_csv(buffer, index=False, header=False)
+        buffer.seek(0)
+        
+        column_sql = ", ".join(columns)
+
+        with self.cursor.copy(
+            f"""
+            COPY {schema}.{table}
+            ({column_sql})
+            FROM STDIN
+            WITH (
+                FORMAT CSV
+            )
+            """
+        ) as copy:
+            while chunk := buffer.read(8192):
+                copy.write(chunk)
+
+        logger.info(f"{len(dataframe)} rows inserted into {schema}.{table}")
+        
+    def copy_dataframe_to_temp_table(
+        self,
+        dataframe: pd.DataFrame,
+        table: str,
+        columns: list[str],
+    ):
+        """
+        Bulk insert DataFrame into PostgreSQL temporary table using COPY.
+        """
+        if dataframe.empty:
+            logger.info(f"{table} is empty. Skip COPY.")
+            return
+
+        logger.info(f"COPY DataFrame -> TEMP TABLE {table}")
+        buffer = io.StringIO()
+        dataframe.to_csv(buffer, index=False, header=False)
+        buffer.seek(0)
+        column_sql = ", ".join(columns)
+
+        with self.cursor.copy(
+            f"""
+            COPY {table}
+            ({column_sql})
+            FROM STDIN
+            WITH
+            (
+                FORMAT CSV
+            )
+            """
+        ) as copy:
+            while chunk := buffer.read(8192):
+                copy.write(chunk)
+
+        logger.info(f"{len(dataframe)} rows inserted into TEMP TABLE {table}")

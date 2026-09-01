@@ -7,6 +7,9 @@ sys.path.insert(0, '/opt/airflow')
 from scripts.ml.customer_churn.batch_inference import run_batch_inference
 from scripts.ml.customer_churn.inference_evaluator import evaluate_production_inference
 
+# 1. IMPORT CALLBACK YANG BARU DIBUAT
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
+
 default_args = {
     "owner": "data-science-team",
     "retries": 1,
@@ -21,7 +24,12 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["mlops", "inference", "churn"],
-    max_active_runs=3, 
+    max_active_runs=3,
+    
+    # 2. TAMBAHKAN DUA BARIS INI DI SINI
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
+    
 ) as dag:
 
     inference_churn_task = PythonOperator(
@@ -29,7 +37,6 @@ with DAG(
         python_callable=run_batch_inference,
     )
     
-    # Task ini memantau kinerja produksi model terhadap kenyataan
     evaluation_production_task = PythonOperator(
         task_id="evaluate_production_inference",
         python_callable=evaluate_production_inference,

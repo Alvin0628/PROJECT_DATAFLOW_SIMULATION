@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 from sqlalchemy import create_engine
-from sklearn.metrics import classification_report, average_precision_score, f1_score
+from sklearn.metrics import classification_report, average_precision_score, f1_score, precision_score, recall_score
+
+from scripts.common.supabase_postgres import SupabasePostgres # <-- IMPORT SUPABASE
 
 def evaluate_production_inference():
     print("Memulai Evaluasi Produksi (Model Drift / Champion-Challenger)...")
@@ -81,10 +83,36 @@ def evaluate_production_inference():
         pr_auc = average_precision_score(y_true, y_prob)
         f1_mac = f1_score(y_true, y_pred, average='macro', zero_division=0)
         
-        print(f"\n[ MODEL {v.upper()} ] - Jumlah Sampel: {len(df_v)}")
+        # Hitung Precision dan Recall untuk Supabase
+        actual_precision = precision_score(y_true, y_pred, zero_division=0)
+        actual_recall = recall_score(y_true, y_pred, zero_division=0)
+        total_checked = len(df_v)
+        
+        print(f"\n[ MODEL {v.upper()} ] - Jumlah Sampel: {total_checked}")
         print(f"PR-AUC (Production) : {pr_auc:.4f}")
         print(f"F1 Macro (Production): {f1_mac:.4f}")
         print(classification_report(y_true, y_pred, target_names=['Retained (0)', 'Churn (1)'], zero_division=0))
         
-if __name__ == "__main__":
-    evaluate_production_inference()
+        # ====================================================================
+        # PUSH KE SUPABASE: Rekonsiliasi Prediksi
+        # ====================================================================
+        try:
+            with SupabasePostgres() as db:
+                db.execute(
+                    """
+                    INSERT INTO prediction_reconciliation (
+                        model_name, evaluation_batch_range, actual_precision, actual_recall, total_predictions_checked, notes
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        "customer_churn", 
+                        f"Evaluasi Versi: {v}", 
+                        float(actual_precision), 
+                        float(actual_recall), 
+                        int(total_checked), 
+                        "Evaluasi prediksi matang usia 90 hari"
+                    )
+                )
+            print(f"✅ Hasil rekonsiliasi Model {v} berhasil dikirim ke Supabase!")
+        except Exception as e:
+            print(f"⚠️ Gagal push data rekonsiliasi ke Supabase: {e}")

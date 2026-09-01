@@ -27,3 +27,5 @@ mlflow
 python-dotenv
 dbt-core
 dbt-postgres
+
+supabase

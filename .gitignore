@@ -1,15 +1,12 @@
 # ==========================
-# Python
+# Python & Environments
 # ==========================
 __pycache__/
 *.py[cod]
-
-# ==========================
-# Virtual Environment
-# ==========================
 .venv/
 venv/
 env/
+.pytest_cache/
 
 # ==========================
 # Airflow Logs
@@ -17,63 +14,46 @@ env/
 logs/
 
 # ==========================
-# Datasets
+# Datasets (Keep structure, ignore data)
 # ==========================
 datasets/master/*
-datasets/landing/*
-datasets/processing/*
-datasets/archive/*
-datasets/failed/*
+datasets/feature_store/*
+datasets/predictions/*
 
 !datasets/master/.gitkeep
-!datasets/landing/.gitkeep
-!datasets/processing/.gitkeep
-!datasets/archive/.gitkeep
-!datasets/failed/.gitkeep
+!datasets/feature_store/.gitkeep
+!datasets/predictions/.gitkeep
 
 # ==========================
-# IDE
+# Machine Learning Artifacts (HANYA ROOT FOLDER)
 # ==========================
-.vscode/
-.idea/
-
-# ==========================
-# Environment Variables
-# ==========================
-.env
-
-# ==========================
-# Database
-# ==========================
-*.db
-
-# ==========================
-# Machine Learning Models
-# ==========================
-models/
+/models/
 *.joblib
 *.pkl
 
 # ==========================
-# Node.js
+# Dashboard Binaries
+# ==========================
+dashboard/*.pbix
+
+# ==========================
+# Web Dashboard (Node.js)
 # ==========================
 node_modules/
 .next/
-
-# ==========================
-# Build
-# ==========================
 dist/
 build/
 
 # ==========================
-# Coverage
+# Environment Variables & Secrets
 # ==========================
-.coverage
-htmlcov/
+.env
+.env.*
 
 # ==========================
-# OS
+# IDE & OS
 # ==========================
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db

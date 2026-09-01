@@ -7,6 +7,7 @@ import sys
 # Pastikan path modul terbaca
 sys.path.insert(0, '/opt/airflow')
 from scripts.ml.customer_churn.model_evaluator import evaluate_model
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
 
 default_args = {
     "owner": "data-science-team",
@@ -37,6 +38,8 @@ with DAG(
     catchup=False,
     tags=["mlops", "training", "churn"],
     max_active_runs=1,
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
 ) as dag:
 
     branching_task = BranchPythonOperator(

@@ -1,7 +1,9 @@
 import pandas as pd
 from sqlalchemy import create_engine, inspect
-from sklearn.metrics import classification_report, average_precision_score
+from sklearn.metrics import classification_report, average_precision_score, precision_score, recall_score
 import os
+
+from scripts.common.supabase_postgres import SupabasePostgres # <-- IMPORT SUPABASE
 
 def evaluate_production_inference():
     print("Memulai Evaluasi Multi-Model (Leaderboard)...")
@@ -75,6 +77,10 @@ def evaluate_production_inference():
         
         pr_auc = average_precision_score(y_true, y_proba) if total_converted > 0 else 0.0
         
+        # Hitung Precision dan Recall
+        actual_precision = precision_score(y_true, y_pred, zero_division=0)
+        actual_recall = recall_score(y_true, y_pred, zero_division=0)
+        
         print(f"\n--- HASIL UNTUK MODEL [{model_v.upper()}] ---")
         print(f"Data Dievaluasi: {total_data} sesi | Actual Converts: {total_converted}")
         print(f"PR-AUC Score   : {pr_auc:.4f}")
@@ -83,6 +89,30 @@ def evaluate_production_inference():
             print(classification_report(y_true, y_pred, target_names=['Not Converted', 'Converted'], zero_division=0))
         else:
             print("Belum ada user yang convert. Menunggu data lebih matang.")
+
+        # ====================================================================
+        # PUSH KE SUPABASE: Rekonsiliasi Prediksi
+        # ====================================================================
+        try:
+            with SupabasePostgres() as db:
+                db.execute(
+                    """
+                    INSERT INTO prediction_reconciliation (
+                        model_name, evaluation_batch_range, actual_precision, actual_recall, total_predictions_checked, notes
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        "session_conversion", 
+                        f"Evaluasi Versi: {model_v}", 
+                        float(actual_precision), 
+                        float(actual_recall), 
+                        int(total_data), 
+                        "Evaluasi prediksi usia 30 hari"
+                    )
+                )
+            print(f"✅ Hasil rekonsiliasi Model {model_v} berhasil dikirim ke Supabase!")
+        except Exception as e:
+            print(f"⚠️ Gagal push data rekonsiliasi ke Supabase: {e}")
 
 if __name__ == "__main__":
     evaluate_production_inference()

@@ -20,6 +20,7 @@ from airflow.operators.bash import BashOperator
 from airflow.utils.trigger_rule import TriggerRule
 from datetime import datetime, timedelta
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
 
 default_args = {
     "owner": "data-engineering",
@@ -35,6 +36,8 @@ dag = DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["data-loading", "incremental", "operational"],
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
 )
 
 check_progress_task = BashOperator(

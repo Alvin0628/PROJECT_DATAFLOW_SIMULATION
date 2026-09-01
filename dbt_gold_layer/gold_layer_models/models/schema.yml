@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: ml_customer_churn
+    columns:
+      - name: user_id
+        tests:
+          - unique
+          - not_null
+
+  - name: ml_late_delivery
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+
+  - name: ml_product_return
+    columns:
+      - name: order_item_id
+        tests:
+          - unique
+          - not_null
+
+  - name: ml_customer_clv
+    columns:
+      - name: user_id
+        tests:
+          - unique
+          - not_null
+
+  - name: ml_session_conversion
+    columns:
+      - name: session_id
+        tests:
+          - unique
+          - not_null

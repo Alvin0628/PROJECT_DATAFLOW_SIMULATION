@@ -6,6 +6,7 @@ import os
 import warnings
 import re
 import glob
+import json
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -151,6 +152,10 @@ def train_model():
     joblib.dump(best_threshold, os.path.join(output_dir_model, f"customer_churn_threshold_{v_tag}.joblib"))
     joblib.dump(X_test, os.path.join(output_dir_test_set, f"X_test_customer_churn_{v_tag}.joblib"))
     joblib.dump(y_test, os.path.join(output_dir_test_set, f"y_test_customer_churn_{v_tag}.joblib"))
+
+    best_params_path = os.path.join(output_dir_model, f"customer_churn_best_params_{v_tag}.json")
+    with open(best_params_path, 'w') as f:
+        json.dump(best_params, f)
 
     print(f"✅ Pipeline Customer Churn berhasil disimpan sebagai Versi: {v_tag}!")
     return final_pipeline, X_test, y_test

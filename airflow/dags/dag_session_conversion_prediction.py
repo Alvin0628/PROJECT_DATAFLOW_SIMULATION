@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, '/opt/airflow')
 from scripts.ml.session_conversion.batch_inference import run_batch_inference
 from scripts.ml.session_conversion.inference_evaluator import evaluate_production_inference
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
 
 default_args = {
     "owner": "data-science-team",
@@ -22,6 +23,8 @@ with DAG(
     catchup=False,
     tags=["mlops", "inference"],
     max_active_runs=3, # Izinkan tumpang tindih jika antrean panjang
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
 ) as dag:
 
     inference_conversion_task = PythonOperator(

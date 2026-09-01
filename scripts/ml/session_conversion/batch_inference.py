@@ -8,21 +8,25 @@ import sys
 
 # PASTIKAN ANDA PUNYA PREPROCESSOR UNTUK CONVERSION JUGA
 from scripts.ml.session_conversion.preprocessor import clean_structural_data 
+from scripts.common.supabase_postgres import SupabasePostgres # <-- 1. IMPORT SENJATA RAHASIA
 
 def run_batch_inference(**kwargs):
     print("Memulai Multi-Model Batch Inference Session Conversion...")
     
     # =========================================================================
-    # 1. TANGKAP NAMA BULAN DARI AIRFLOW PAYLOAD
+    # 1. TANGKAP NAMA BULAN & BATCH NUMBER DARI AIRFLOW PAYLOAD
     # =========================================================================
     sim_month = "unknown"
+    batch_number = 0 # <-- Tambahan untuk Supabase
+    
     if "dag_run" in kwargs and kwargs["dag_run"].conf:
         sim_month = kwargs["dag_run"].conf.get("sim_month", "unknown")
+        batch_number = int(kwargs["dag_run"].conf.get("batch_number", 0))
         
     if sim_month == "unknown":
         sim_month = os.getenv("SIM_MONTH", "unknown")
         
-    print(f"Mengeksekusi Inference untuk Bulan Simulasi: {sim_month}")
+    print(f"Mengeksekusi Inference untuk Bulan Simulasi: {sim_month} | Batch: {batch_number}")
     
     # =========================================================================
     # 2. BACA FILE INFERENCE BULAN BERJALAN (DELTA)
@@ -91,7 +95,7 @@ def run_batch_inference(**kwargs):
     df_final_log = pd.concat(all_logs, ignore_index=True)
     
     # =========================================================================
-    # 3. SIMPAN HASIL PREDIKSI DENGAN NAMA BULAN BERJALAN
+    # 3. SIMPAN HASIL PREDIKSI KE LOKAL (PARQUET & DWH LAMA)
     # =========================================================================
     output_dir = "/opt/airflow/datasets/prediction"
     os.makedirs(output_dir, exist_ok=True)
@@ -100,7 +104,42 @@ def run_batch_inference(**kwargs):
     df_parquet.to_parquet(out_file, index=False)
     
     df_final_log.to_sql('ml_inference_logs', engine, schema='public', if_exists='append', index=False)
-    print(f"✅ Tersimpan {len(df_final_log)} total log prediksi dari {len(model_files)} model ke database.")
+    print(f"✅ Tersimpan {len(df_final_log)} total log prediksi dari {len(model_files)} model ke database DWH Lokal.")
+
+    # =========================================================================
+    # 4. EXTEND: PUSH KE SUPABASE CLOUD
+    # =========================================================================
+    print("Mempersiapkan data untuk di-push ke Supabase Cloud...")
+    try:
+        # Ubah nama kolom agar cocok dengan skema tabel 'predictions' Supabase
+        df_supabase = df_final_log[['session_id', 'conversion_probability', 'predicted_to_convert']].copy()
+        df_supabase.rename(columns={
+            'session_id': 'entity_id',
+            'conversion_probability': 'probability',
+            'predicted_to_convert': 'predicted_label'
+        }, inplace=True)
+        
+        # Tambahkan identitas pipeline
+        df_supabase['model_name'] = 'session_conversion'
+        df_supabase['batch_number'] = batch_number
+        df_supabase['entity_id'] = df_supabase['entity_id'].astype(str) # Pastikan format teks
+        
+        # Tentukan urutan kolom yang akan di-COPY
+        columns_to_push = ['model_name', 'batch_number', 'entity_id', 'probability', 'predicted_label']
+        df_supabase = df_supabase[columns_to_push]
+        
+        # Tembak massal ke Supabase!
+        with SupabasePostgres() as db:
+            db.copy_dataframe(
+                dataframe=df_supabase,
+                schema='public',
+                table='predictions',
+                columns=columns_to_push
+            )
+        print("🚀 Berhasil push jutaan/ribuan prediksi ke Supabase Cloud!")
+    except Exception as e:
+        # Pakai try-except agar DWH lokal tidak gagal jika internet putus
+        print(f"⚠️ Gagal push prediksi ke Supabase: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

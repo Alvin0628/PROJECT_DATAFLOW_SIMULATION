@@ -14,6 +14,9 @@ from scripts.common.postgres import Postgres
 from scripts.common.metadata import PipelineMetadata
 from scripts.common.config import PIPELINE
 
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
+from scripts.common.mart_to_supabase import run_sync
+
 default_args = {
     "owner": "data-engineering",
     "retries": 1,
@@ -63,6 +66,8 @@ with DAG(
     catchup=False,
     tags=["data-loading", "gold", "dbt"],
     max_active_runs=1,
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
 ) as dag:
 
     run_dbt_task = BashOperator(
@@ -73,6 +78,11 @@ with DAG(
     test_dbt_task = BashOperator(
         task_id="test_dbt_gold_layer",
         bash_command="cd /opt/airflow/dbt_gold_layer/gold_layer_models && dbt test",
+    )
+    
+    sync_marts_to_supabase_task = PythonOperator(
+        task_id="sync_marts_to_supabase",
+        python_callable=run_sync,
     )
 
     # 2. PERBAIKAN: Tarik metadata SEBELUM export parquet
@@ -136,7 +146,7 @@ with DAG(
     )
 
     # 5. PERBAIKAN: Alur eksekusi diubah urutannya
-    run_dbt_task >> test_dbt_task >> get_metadata_task >> export_parquet_task >> [
+    run_dbt_task >> test_dbt_task >> sync_marts_to_supabase_task >> get_metadata_task >> export_parquet_task >> [
         trigger_ml_churn_training_task,
         trigger_ml_churn_inference_task, 
         trigger_ml_conversion_training_task, 

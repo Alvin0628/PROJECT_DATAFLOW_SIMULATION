@@ -6,6 +6,7 @@ import sys
 
 sys.path.insert(0, '/opt/airflow')
 from scripts.ml.session_conversion.model_evaluator import evaluate_model
+from scripts.common.airflow_callbacks import dag_success_callback, dag_failure_callback
 
 default_args = {
     "owner": "data-science-team",
@@ -31,6 +32,8 @@ with DAG(
     catchup=False,
     tags=["mlops", "training"],
     max_active_runs=1,
+    on_success_callback=dag_success_callback,
+    on_failure_callback=dag_failure_callback,
 ) as dag:
 
     branching_task = BranchPythonOperator(
