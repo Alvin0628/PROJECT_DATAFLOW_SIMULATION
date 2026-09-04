@@ -20,10 +20,10 @@ export function useApiData<T>(
   useEffect(() => {
     let cancelled = false;
 
-    // Praktik Terbaik: Bungkus logika fetch di dalam fungsi async
+    // Wrap fetch logic in an async function
     const loadData = async () => {
-      // Menggunakan functional update untuk mencegah peringatan cascading update
-      setLoading((prev) => (prev === true ? true : true)); 
+      // Use a functional update to avoid cascading update warnings
+      setLoading((prev) => (prev === true ? true : true));
       setError(null);
 
       const res = await fetcher();
@@ -35,10 +35,10 @@ export function useApiData<T>(
       }
     };
 
-    // Eksekusi fungsinya
+    // Execute the function
     loadData();
 
-    // Fungsi pembersihan (cleanup) jika komponen ditutup sebelum fetch selesai
+    // Cleanup if the component unmounts before fetch completes
     return () => {
       cancelled = true;
     };

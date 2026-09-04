@@ -5,7 +5,7 @@
     ]
 ) }}
 
--- 1. MESIN WAKTU: Tentukan Titik Potong (Mundur 90 Hari)
+-- TIME MACHINE: Set the Cutoff Point (90 Days Back)
 WITH time_boundaries AS (
     SELECT 
         MAX(created_at) AS max_date,
@@ -13,7 +13,8 @@ WITH time_boundaries AS (
     FROM silver.orders
 ),
 
--- 2. KUMULATIF: Ambil SEMUA user yang pernah lahir dan belanja sebelum titik potong
+-- CUMULATIVE: Get ALL users who existed and made purchases before the cutoff
+
 base_users AS (
     SELECT DISTINCT user_id
     FROM silver.orders
@@ -21,7 +22,6 @@ base_users AS (
     WHERE created_at <= cutoff_date
 ),
 
--- 3. TARGET JAWABAN (Y): Mengintip Masa Depan
 target_labels AS (
     SELECT 
         bu.user_id,
@@ -37,7 +37,7 @@ target_labels AS (
     GROUP BY bu.user_id
 ),
 
--- 4. HITUNG RAPOT MASA LALU (Semua Sejarah)
+-- 4. CALCULATE HISTORICAL FEATURES (Full History)
 order_metrics_past AS (
     SELECT 
         o.user_id,
@@ -90,7 +90,7 @@ web_metrics_past AS (
     GROUP BY e.user_id
 )
 
--- 5. BUNGKUS FINAL 
+-- 5. Final
 SELECT 
     omp.user_id,
     tl.is_churned,

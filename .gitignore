@@ -12,17 +12,18 @@ env/
 # Airflow Logs
 # ==========================
 logs/
+airflow/logs
 
 # ==========================
 # Datasets (Keep structure, ignore data)
 # ==========================
 datasets/master/*
 datasets/feature_store/*
-datasets/predictions/*
+datasets/prediction/*
 
 !datasets/master/.gitkeep
 !datasets/feature_store/.gitkeep
-!datasets/predictions/.gitkeep
+!datasets/prediction/.gitkeep
 
 # ==========================
 # Machine Learning Artifacts (HANYA ROOT FOLDER)
@@ -31,10 +32,6 @@ datasets/predictions/*
 *.joblib
 *.pkl
 
-# ==========================
-# Dashboard Binaries
-# ==========================
-dashboard/*.pbix
 
 # ==========================
 # Web Dashboard (Node.js)

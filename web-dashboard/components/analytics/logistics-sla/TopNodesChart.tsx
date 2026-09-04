@@ -1,4 +1,4 @@
-// file: components/analytics/logistics-sla/TopNodesChart.tsx
+// components/analytics/logistics-sla/TopNodesChart.tsx
 "use client";
 
 import {

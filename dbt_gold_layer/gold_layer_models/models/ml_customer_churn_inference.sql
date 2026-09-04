@@ -5,7 +5,6 @@
     ]
 ) }}
 
--- 1. Tentukan Jendela Waktu (Delta: 30 Hari Terakhir)
 WITH global_time_window AS (
     SELECT 
         MAX(created_at) AS max_date,
@@ -13,7 +12,7 @@ WITH global_time_window AS (
     FROM silver.orders
 ),
 
--- 2. DELTA FILTER: Siapa saja user yang aktif/transaksi di 30 hari terakhir?
+-- 2. DELTA FILTER: Users active or transacting in the last 30 days
 active_users AS (
     SELECT DISTINCT o.user_id
     FROM silver.orders o
@@ -22,7 +21,7 @@ active_users AS (
       AND o.created_at <= g.max_date
 ),
 
--- 3. Order level aggregation (Fitur dihitung utuh dari masa lalu sampai max_date)
+-- 3. Order level aggregation -- (Features are calculated from the full history up to max_date)
 order_metrics AS (
     SELECT 
         o.user_id,
@@ -41,7 +40,7 @@ order_metrics AS (
     GROUP BY o.user_id
 ),
 
--- 4. Aggregation item and product (Fitur utuh)
+-- 4. Aggregation item and product
 item_metrics AS (
     SELECT 
         o.user_id, 
@@ -59,7 +58,7 @@ item_metrics AS (
     GROUP BY o.user_id
 ),
 
--- 5. Aggregation web / activity user (Fitur utuh)
+-- 5. Aggregation web / activity user
 web_metrics AS (
     SELECT 
         e.user_id,

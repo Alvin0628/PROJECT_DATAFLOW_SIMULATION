@@ -13,8 +13,7 @@ export default async function QualityGateWarning({ modelName }: QualityGateWarni
   const body: ApiResponse<ModelMetrics[]> = await res.json();
   const champion = body.data?.[0];
 
-  // Tidak render apapun kalau model ini SUDAH lolos quality gate -- banner
-  // cuma muncul saat memang perlu jadi perhatian, bukan noise di semua kondisi.
+  // Show only when the quality gate fails to avoid unnecessary noise
   if (champion && champion.quality_gate_passed) {
     return null;
   }
@@ -23,10 +22,7 @@ export default async function QualityGateWarning({ modelName }: QualityGateWarni
     <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-start gap-2">
       <span>⚠️</span>
       <span>
-        Model ini <strong>belum lolos quality gate</strong> (F1 Macro tidak
-        mengalahkan baseline classifier trivial). Prediksi di bawah
-        ditampilkan untuk transparansi, <strong>bukan</strong> untuk
-        actionable insight.
+        This model <strong>has not passed the quality gate</strong> (Macro F1 does not outperform the trivial classifier baseline). The predictions below are shown for transparency, <strong>not for actionable insights</strong>.
       </span>
     </div>
   );

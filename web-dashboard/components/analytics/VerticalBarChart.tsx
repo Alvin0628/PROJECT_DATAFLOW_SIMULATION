@@ -1,4 +1,4 @@
-// file: components/analytics/sales-revenue/VerticalBarChart.tsx
+// components/analytics/sales-revenue/VerticalBarChart.tsx
 "use client";
 
 import {

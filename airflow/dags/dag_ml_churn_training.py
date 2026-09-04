@@ -22,7 +22,7 @@ def check_if_training_needed(**context):
     except (TypeError, ValueError):
         current_batch = 0
         
-    print(f"📥 Target Batch untuk Churn Training: {current_batch}")
+    print(f"Target Batch for Churn Training: {current_batch}")
     
     if current_batch > 0 and current_batch % 6 == 0:
         return "train_churn_model"
@@ -47,7 +47,7 @@ with DAG(
         python_callable=check_if_training_needed,
     )
 
-    # Eksekusi berat di-offload ke Docker daemon Host (DooD)
+    # Offload heavy workloads to the host Docker daemon (DooD)
     train_churn_task = BashOperator(
         task_id="train_churn_model",
         bash_command=(
@@ -64,7 +64,7 @@ with DAG(
     
     skip_training = BashOperator(
         task_id="skip_training",
-        bash_command="echo 'Bukan kelipatan 6. Skip Churn Training.'",
+        bash_command="echo 'Not a multiple of 6. Skipping Training.'",
     )
 
     branching_task >> train_churn_task >> evaluate_churn_task

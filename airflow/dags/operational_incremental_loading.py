@@ -1,15 +1,14 @@
 """
-Operational Incremental Loading DAG - TIME-BASED VERSION
-(Bash-based with proper quote escaping)
+Operational Incremental Loading DAG - Time-Based
 
-This version uses BashOperator instead of PythonOperator to avoid
-Airflow 2.10 SDK API gateway issues. Uses single quotes for bash heredoc.
+Loads operational data in monthly windows and tracks progress through metadata.
 
 Workflow:
-  1. check_pipeline_completion: Checks Time Window state from metadata
-  2. incremental_loader_batch: Run loader for 1 Month Window
-  3. validate_batch_processing: Validates orders are loaded
-  4. report_pipeline_status: Reports progress based on dates
+  1. Check current time window and completion status
+  2. Run incremental loader for the current window
+  3. Validate loaded orders
+  4. Report overall pipeline progress
+  5. Trigger the Gold Layer (dbt) pipeline
 """
 
 import sys
@@ -32,7 +31,7 @@ dag = DAG(
     "operational_incremental_loading",
     default_args=default_args,
     description="Incremental loading: operational_raw → operational (Time-based by Month)",
-    schedule="*/3 * * * *",  # setiap 3 menit (sebelumnya: setiap 1 menit)
+    schedule="*/3 * * * *",  # every 3 minutes (scheduled)
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["data-loading", "incremental", "operational"],

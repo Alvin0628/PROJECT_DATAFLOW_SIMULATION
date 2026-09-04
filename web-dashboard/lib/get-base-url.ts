@@ -1,9 +1,8 @@
 import 'server-only';
 
 /**
- * Server Component butuh URL ABSOLUT untuk fetch API route miliknya sendiri
- * VERCEL_URL di-inject OTOMATIS oleh Vercel saat production.
- * Untuk local dev, fallback ke localhost.
+ * Server Components need an absolute URL to fetch their own API routes.
+ * VERCEL_URL is provided automatically in production; localhost is used locally.
  */
 export function getBaseUrl(): string {
   if (process.env.VERCEL_URL) {

@@ -22,15 +22,15 @@ default_args = {
     "retries": 1,
 }
 
-# 1. PERBAIKAN: Fungsi ini sekarang mengambil Batch DAN Waktu Simulasi
+
 def fetch_current_metadata(**context):
-    # A. Ambil Batch Number
+    # A. get batch number
     with Postgres() as db:
         metadata = PipelineMetadata(db)
         state = metadata.get(PIPELINE['pipeline_name'])
         batch_num = state.get("batch_number", 0)
         
-    # B. Ambil Bulan Simulasi (YYYY_MM)
+    # B. get month simulation 
     try:
         db_user = os.getenv("POSTGRES_USER_warehouse", "postgres")
         db_password = os.getenv("POSTGRES_PASSWORD_warehouse", "postgres") 
@@ -51,7 +51,7 @@ def fetch_current_metadata(**context):
     print(f"DEBUG: Current batch number: {batch_num}")
     print(f"DEBUG: Current sim month: {sim_month_str}")
     
-    # C. Return sebagai Dictionary agar bisa ditarik semuanya via XCom
+    # C. Return as a dictionary so all values can be accessed via XCom
     return {
         "batch_number": batch_num,
         "sim_month": sim_month_str
@@ -85,13 +85,12 @@ with DAG(
         python_callable=run_sync,
     )
 
-    # 2. PERBAIKAN: Tarik metadata SEBELUM export parquet
     get_metadata_task = PythonOperator(
         task_id="fetch_current_metadata",
         python_callable=fetch_current_metadata,
     )
 
-    # 3. PERBAIKAN: Lempar 'sim_month' ke dalam script Python Export via op_kwargs
+    # Pass `sim_month` to the Python export script via op_kwargs
     export_parquet_task = PythonOperator(
         task_id="export_gold_tables_to_parquet",
         python_callable=export_gold_to_parquet,
@@ -100,11 +99,8 @@ with DAG(
         }
     )
     
-    # =========================================================================
-    # 4 TRIGGER MLOPS (JALAN PARALEL)
-    # =========================================================================
+    # ML OPS Trigger (parallel)
     
-    # 4. PERBAIKAN: Payload 'conf' sekarang melempar batch_number DAN sim_month
     trigger_ml_churn_training_task = TriggerDagRunOperator(
         task_id="trigger_ml_churn_training",
         trigger_dag_id="ml_churn_training_pipeline",
@@ -145,7 +141,6 @@ with DAG(
         wait_for_completion=False, 
     )
 
-    # 5. PERBAIKAN: Alur eksekusi diubah urutannya
     run_dbt_task >> test_dbt_task >> sync_marts_to_supabase_task >> get_metadata_task >> export_parquet_task >> [
         trigger_ml_churn_training_task,
         trigger_ml_churn_inference_task, 

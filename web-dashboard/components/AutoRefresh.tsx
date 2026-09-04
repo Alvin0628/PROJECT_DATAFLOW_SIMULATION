@@ -1,20 +1,24 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function AutoRefresh({ intervalMs = 60000 }: { intervalMs?: number }) {
+export default function AutoRefresh({
+  intervalMs = 60000,
+}: {
+  intervalMs?: number;
+}) {
   const router = useRouter();
 
   useEffect(() => {
-    // Set interval untuk me-refresh halaman di background
+    // Set interval for refresh
     const interval = setInterval(() => {
       router.refresh();
     }, intervalMs);
 
-    // Bersihkan interval saat komponen di-unmount
+    // Clear interval on component unmount
     return () => clearInterval(interval);
   }, [router, intervalMs]);
 
-  return null; // Tidak merender UI apa pun, murni berjalan di background
+  return null;
 }

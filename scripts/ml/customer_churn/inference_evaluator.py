@@ -3,10 +3,10 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sklearn.metrics import classification_report, average_precision_score, f1_score, precision_score, recall_score
 
-from scripts.common.supabase_postgres import SupabasePostgres # <-- IMPORT SUPABASE
+from scripts.common.supabase_postgres import SupabasePostgres 
 
 def evaluate_production_inference():
-    print("Memulai Evaluasi Produksi (Model Drift / Champion-Challenger)...")
+    print("Starting Production Evaluation (Model Drift / Champion-Challenger)...")
     
     DB_USER = os.getenv("POSTGRES_USER_warehouse", "postgres_warehouse")
     DB_PASS = os.getenv("POSTGRES_PASSWORD_warehouse", "WH721HDA")
@@ -15,7 +15,7 @@ def evaluate_production_inference():
     
     engine = create_engine(DB_URI)
     
-    # PERUBAHAN: Menambahkan CTE sim_time dan Filter Delta (90-120 days)
+    # sim_time CTE and Delta Filter (90-120 days)
     query = """
     WITH sim_time AS (
         SELECT MAX(created_at) AS current_sim_time FROM silver.orders
@@ -58,20 +58,20 @@ def evaluate_production_inference():
      AND mp.model_version = afo.model_version;
     """
     
-    print("Mengekstrak prediksi matang dari database...")
+    print("Extracting mature predictions from the database...")
     try:
         df_eval = pd.read_sql(query, engine)
     except Exception as e:
-        print(f"⚠️ Tabel log atau orders belum siap: {e}")
+        print(f"Log or orders table not ready: {e}")
         return
 
     if df_eval.empty:
-        print("⚠️ Belum ada prediksi yang 'matang' (>90 hari) untuk dievaluasi. Menunggu waktu simulasi berjalan...")
+        print("No 'mature' predictions (>90 days) available for evaluation yet. Waiting for the simulation time to progress...")
         return
         
     versions = df_eval['model_version'].unique()
     print("\n" + "="*60)
-    print("🏆 HASIL EVALUASI PRODUKSI (REAL-WORLD PERFORMANCE) 🏆")
+    print("PRODUCTION EVALUATION RESULTS (REAL-WORLD PERFORMANCE) ")
     print("="*60)
     
     for v in sorted(versions):
@@ -88,14 +88,12 @@ def evaluate_production_inference():
         actual_recall = recall_score(y_true, y_pred, zero_division=0)
         total_checked = len(df_v)
         
-        print(f"\n[ MODEL {v.upper()} ] - Jumlah Sampel: {total_checked}")
+        print(f"\n[ MODEL {v.upper()} ] - Total Sample : {total_checked}")
         print(f"PR-AUC (Production) : {pr_auc:.4f}")
         print(f"F1 Macro (Production): {f1_mac:.4f}")
         print(classification_report(y_true, y_pred, target_names=['Retained (0)', 'Churn (1)'], zero_division=0))
         
-        # ====================================================================
-        # PUSH KE SUPABASE: Rekonsiliasi Prediksi
-        # ====================================================================
+        # push supabase
         try:
             with SupabasePostgres() as db:
                 db.execute(
@@ -113,6 +111,6 @@ def evaluate_production_inference():
                         "Evaluasi prediksi matang usia 90 hari"
                     )
                 )
-            print(f"✅ Hasil rekonsiliasi Model {v} berhasil dikirim ke Supabase!")
+            print(f"Reconciliation results for Model {v} successfully sent to Supabase!")
         except Exception as e:
-            print(f"⚠️ Gagal push data rekonsiliasi ke Supabase: {e}")
+            print(f"Failed to push reconciliation data to Supabase: {e}")

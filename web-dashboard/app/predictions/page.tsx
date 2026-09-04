@@ -3,5 +3,77 @@ import { Suspense } from "react";
 import PredictionsTable from "@/components/predictions/PredictionsTable";
 import QualityGateWarning from "@/components/predictions/Qualitygatewarning";
 
-const models = [{ name: "customer_churn", label: "Customer churn", tone: "text-primary" }, { name: "session_conversion", label: "Session conversion", tone: "text-warning" }] as const;
-export default function PredictionsPage() { return <div className="flex flex-col gap-8 pb-10"><AutoRefresh intervalMs={60000} /><header className="border-b border-border pb-7"><p className="dashboard-eyebrow">Inference / explorer</p><h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em]">Prediction monitoring</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Trace model output from signal quality to entity-level decisions. Filter, inspect, and export the live prediction stream.</p></header><section className="grid gap-4 md:grid-cols-3"><article className="dashboard-panel p-5"><p className="dashboard-eyebrow">Inference stream</p><p className="mt-3 text-3xl font-semibold">12.4K</p><p className="mt-1 text-sm text-muted">Predictions processed today</p></article><article className="dashboard-panel p-5"><p className="dashboard-eyebrow">Serving models</p><p className="mt-3 text-3xl font-semibold">2</p><p className="mt-1 text-sm text-muted">Production outputs available</p></article><article className="dashboard-panel bg-primary/10 p-5"><p className="dashboard-eyebrow">Signal posture</p><p className="mt-3 text-3xl font-semibold text-success">98.7%</p><p className="mt-1 text-sm text-muted">System health / last updated 2m ago</p></article></section><div className="flex flex-col gap-6">{models.map((model) => <section key={model.name} className="dashboard-panel overflow-hidden"><div className="flex flex-col gap-4 border-b border-border bg-surface-muted/50 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6"><div><p className={`dashboard-eyebrow ${model.tone}`}>Model output</p><h2 className="mt-1 text-xl font-semibold">{model.label}</h2><p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted">{model.name} / live batch context</p></div><div className="flex gap-2"><span className="rounded-full bg-success-soft px-3 py-1.5 font-mono text-[10px] text-success">SERVING</span><span className="rounded-full border border-border px-3 py-1.5 font-mono text-[10px] text-muted">EXPORT CSV</span></div></div><Suspense fallback={null}><QualityGateWarning modelName={model.name} /></Suspense><div className="p-2 md:p-4"><PredictionsTable modelName={model.name} /></div></section>)}</div></div>; }
+const models = [
+  { name: "customer_churn", label: "Customer churn", tone: "text-primary" },
+  { name: "session_conversion", label: "Session conversion", tone: "text-warning" },
+] as const;
+
+export default function PredictionsPage() {
+  return (
+    <div className="flex flex-col gap-8 pb-10">
+      <AutoRefresh intervalMs={60000} />
+
+      <header className="border-b border-border pb-7">
+        <p className="dashboard-eyebrow">Inference / explorer</p>
+        <h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em]">
+          Prediction monitoring
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+          Trace model output from signal quality to entity-level decisions. Filter, inspect, and export the live prediction stream.
+        </p>
+      </header>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <article className="dashboard-panel p-5">
+          <p className="dashboard-eyebrow">Inference stream</p>
+          <p className="mt-3 text-3xl font-semibold">12.4K</p>
+          <p className="mt-1 text-sm text-muted">Predictions processed today</p>
+        </article>
+        
+        <article className="dashboard-panel p-5">
+          <p className="dashboard-eyebrow">Serving models</p>
+          <p className="mt-3 text-3xl font-semibold">2</p>
+          <p className="mt-1 text-sm text-muted">Production outputs available</p>
+        </article>
+
+        <article className="dashboard-panel bg-primary/10 p-5">
+          <p className="dashboard-eyebrow">Signal posture</p>
+          <p className="mt-3 text-3xl font-semibold text-success">98.7%</p>
+          <p className="mt-1 text-sm text-muted">System health / last updated 2m ago</p>
+        </article>
+      </section>
+
+      <div className="flex flex-col gap-6">
+        {models.map((model) => (
+          <section key={model.name} className="dashboard-panel overflow-hidden">
+            <div className="flex flex-col gap-4 border-b border-border bg-surface-muted/50 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6">
+              <div>
+                <p className={`dashboard-eyebrow ${model.tone}`}>Model output</p>
+                <h2 className="mt-1 text-xl font-semibold">{model.label}</h2>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted">
+                  {model.name} / live batch context
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <span className="rounded-full bg-success-soft px-3 py-1.5 font-mono text-[10px] text-success">
+                  SERVING
+                </span>
+                <span className="rounded-full border border-border px-3 py-1.5 font-mono text-[10px] text-muted">
+                  EXPORT CSV
+                </span>
+              </div>
+            </div>
+
+            <Suspense fallback={null}>
+              <QualityGateWarning modelName={model.name} />
+            </Suspense>
+
+            <div className="p-2 md:p-4">
+              <PredictionsTable modelName={model.name} />
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}

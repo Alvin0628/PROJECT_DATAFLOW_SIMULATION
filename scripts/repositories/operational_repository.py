@@ -10,15 +10,6 @@ logger = get_logger(__name__)
 
 
 class OperationalRepository:
-    """
-    Repository for operational schema.
-    
-    Design:
-    - Reads from operational_raw (immutable source)
-    - Writes to operational (built incrementally based on TIME WINDOW)
-    - No conflict handling (fail-fast on logic errors)
-    - Graceful handling of out-of-stock items
-    """
     def __init__(self, db):
         self.db = db
         self.raw_schema = SCHEMA["raw"]
@@ -29,7 +20,6 @@ class OperationalRepository:
         sql: str,
         params: tuple | None = None,
     ) -> pd.DataFrame:
-        """Execute query and return result as DataFrame."""
         self.db.execute(sql, params)
         rows = self.db.fetchall()
         columns = [column[0] for column in self.db.cursor.description]
@@ -41,7 +31,6 @@ class OperationalRepository:
         table: str,
         schema: str = None,
     ):
-        """Direct insert without conflict handling."""
         if dataframe.empty:
             logger.info(f"{table} dataframe is empty. Skip insert.")
             return
@@ -72,9 +61,6 @@ class OperationalRepository:
         self.db.execute(insert_sql)
         logger.info(f"{len(dataframe)} rows inserted into {schema}.{table}")
     
-    # ====================================================================
-    # TIME-BASED EXTRACT METHODS (Phase 1)
-    # ====================================================================
     
     def get_users_by_time(self, start_date: datetime, end_date: datetime) -> pd.DataFrame:
         """Load users registered within the current time window."""
@@ -114,10 +100,6 @@ class OperationalRepository:
         events_df = self._query_dataframe(sql, (start_date, end_date))
         logger.info(f"{len(events_df)} events loaded from raw.")
         return events_df
-    
-    # ====================================================================
-    # DEPENDENCY-BASED EXTRACT METHODS (Kept intact from last commit)
-    # ====================================================================
 
     def get_order_items_by_orders(self, order_ids: list[int]) -> pd.DataFrame:
         """Load order items for specific orders from raw schema."""
@@ -139,7 +121,6 @@ class OperationalRepository:
         """
         Load specific inventory items by ID from operational schema.
         (Master Data).
-        Ensures we only fetch items that are still IN STOCK (sold_at IS NULL).
         """
         if not inventory_ids:
             return pd.DataFrame()
@@ -154,10 +135,6 @@ class OperationalRepository:
         inventory_df = self._query_dataframe(sql, (inventory_ids,))
         logger.info(f"{len(inventory_df)} inventory items available in stock.")
         return inventory_df
-    
-    # ====================================================================
-    # OUT OF STOCK DETECTION (Kept intact)
-    # ====================================================================
 
     def detect_out_of_stock_items(self, order_items_df: pd.DataFrame, available_inventory_ids: list) -> tuple:
         """Detect order_items that reference missing inventory items."""
@@ -173,7 +150,7 @@ class OperationalRepository:
             logger.info("✓ All requested inventory items are available (in stock)")
             return order_items_df, pd.DataFrame()
         
-        logger.warning(f"⚠ OUT OF STOCK DETECTED: {len(missing_inventory_ids)} inventory items not available")
+        logger.warning(f"OUT OF STOCK DETECTED: {len(missing_inventory_ids)} inventory items not available")
         
         in_stock_mask = order_items_df["inventory_item_id"].isin(available_set)
         in_stock_items = order_items_df[in_stock_mask].copy()
@@ -183,9 +160,6 @@ class OperationalRepository:
         
         return in_stock_items, out_of_stock_items
     
-    # ====================================================================
-    # INSERT METHODS (Kept intact)
-    # ====================================================================
     
     def insert_users(self, users_df: pd.DataFrame):
         self._bulk_insert_dataframe(users_df, "users")

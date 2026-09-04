@@ -1,5 +1,135 @@
 import { supabase } from "@/lib/supabase-client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+
 export const dynamic = "force-dynamic";
-export default async function ModelDetailPage({ params }: { params: Promise<{ modelName: string; batchNumber: string }> }) { const { modelName, batchNumber } = await params; const { data: modelDetail, error } = await supabase.from("model_metrics").select("*").eq("model_name", modelName).eq("batch_number", parseInt(batchNumber)).single(); if (error || !modelDetail) return notFound(); const bestParams = modelDetail.best_params || {}; const evalImages = modelDetail.evaluation_images || {}; return <div className="flex flex-col gap-8 pb-10"><nav className="font-mono text-[10px] uppercase tracking-widest text-muted"><Link href="/models" className="text-primary hover:underline">Model registry</Link><span className="mx-2">/</span>{modelName}<span className="mx-2">/</span>batch {batchNumber}</nav><header className="dashboard-panel bg-gradient-to-br from-primary/15 via-surface to-surface p-6 md:p-8"><div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p className="dashboard-eyebrow">Production model inspection</p><h1 className="mt-2 text-4xl font-semibold capitalize tracking-[-0.04em]">{modelName.replace("_", " ")}</h1><p className="mt-2 font-mono text-sm text-muted">Batch {batchNumber} · evaluation snapshot</p></div>{modelDetail.is_champion && <span className="rounded-full bg-success-soft px-3 py-2 font-mono text-[10px] font-bold text-success">CURRENT CHAMPION</span>}</div></header><section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["AUC-ROC", modelDetail.auc_roc], ["Accuracy", modelDetail.accuracy], ["Precision", modelDetail.precision], ["Recall", modelDetail.recall]].map(([label, value]) => <article key={String(label)} className="dashboard-panel p-5"><p className="dashboard-eyebrow">{label}</p><p className="mt-4 text-3xl font-semibold">{value == null ? "—" : String(value)}</p><p className="mt-2 text-xs text-muted">Batch evaluation metric</p></article>)}</section><section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]"><article className="dashboard-panel overflow-hidden"><div className="border-b border-border px-5 py-4"><p className="dashboard-eyebrow">Evaluation evidence</p><h2 className="mt-1 text-xl font-semibold">ROC and confusion matrix</h2></div>{evalImages.roc_and_cm ? <div className="flex min-h-[360px] items-center justify-center bg-surface-muted p-5"><img src={evalImages.roc_and_cm} alt={`${modelName} ROC and confusion matrix`} className="max-h-[480px] max-w-full object-contain" /></div> : <div className="m-5 flex h-72 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted">No evaluation images uploaded.</div>}</article><article className="dashboard-panel overflow-hidden"><div className="border-b border-border px-5 py-4"><p className="dashboard-eyebrow">Training metadata</p><h2 className="mt-1 text-xl font-semibold">Run parameters</h2></div>{Object.keys(bestParams).length > 0 ? <div className="divide-y divide-border">{Object.entries(bestParams).map(([key, value]) => <div key={key} className="flex items-center justify-between gap-4 px-5 py-4"><span className="text-sm text-muted">{key}</span><span className="font-mono text-xs font-semibold text-primary">{String(value)}</span></div>)}</div> : <p className="p-5 text-sm text-muted">Hyperparameters are not available for this run.</p>}</article></section></div>; }
+
+export default async function ModelDetailPage({
+  params,
+}: {
+  params: Promise<{ modelName: string; batchNumber: string }>;
+}) {
+  const { modelName, batchNumber } = await params;
+
+  const { data: modelDetail, error } = await supabase
+    .from("model_metrics")
+    .select("*")
+    .eq("model_name", modelName)
+    .eq("batch_number", parseInt(batchNumber))
+    .single();
+
+  if (error || !modelDetail) return notFound();
+
+  const bestParams = modelDetail.best_params || {};
+  const evalImages = modelDetail.evaluation_images || {};
+
+  return (
+    <div className="flex flex-col gap-8 pb-10">
+      <nav className="font-mono text-[10px] uppercase tracking-widest text-muted">
+        <Link href="/models" className="text-primary hover:underline">
+          Model registry
+        </Link>
+        <span className="mx-2">/</span>
+        {modelName}
+        <span className="mx-2">/</span>
+        batch {batchNumber}
+      </nav>
+
+      <header className="dashboard-panel bg-gradient-to-br from-primary/15 via-surface to-surface p-6 md:p-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="dashboard-eyebrow">Production model inspection</p>
+
+            <h1 className="mt-2 text-4xl font-semibold capitalize tracking-[-0.04em]">
+              {modelName.replace("_", " ")}
+            </h1>
+
+            <p className="mt-2 font-mono text-sm text-muted">
+              Batch {batchNumber} · evaluation snapshot
+            </p>
+          </div>
+
+          {modelDetail.is_champion && (
+            <span className="rounded-full bg-success-soft px-3 py-2 font-mono text-[10px] font-bold text-success">
+              CURRENT CHAMPION
+            </span>
+          )}
+        </div>
+      </header>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["AUC-ROC", modelDetail.roc_auc],
+          ["PR-AUC", modelDetail.pr_auc],
+          ["Precision", modelDetail.precision_positive],
+          ["Recall", modelDetail.recall_positive],
+        ].map(([label, value]) => (
+          <article key={String(label)} className="dashboard-panel p-5">
+            <p className="dashboard-eyebrow">{label}</p>
+
+            <p className="mt-4 text-3xl font-semibold">
+              {value == null ? "—" : Number(value).toFixed(4)}
+            </p>
+
+            <p className="mt-2 text-xs text-muted">Batch evaluation metric</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <article className="dashboard-panel overflow-hidden">
+          <div className="border-b border-border px-5 py-4">
+            <p className="dashboard-eyebrow">Evaluation evidence</p>
+
+            <h2 className="mt-1 text-xl font-semibold">
+              ROC and confusion matrix
+            </h2>
+          </div>
+
+          {evalImages.roc_and_cm ? (
+            <div className="flex min-h-[360px] items-center justify-center bg-surface-muted p-5">
+              <img
+                src={evalImages.roc_and_cm}
+                alt={`${modelName} ROC and confusion matrix`}
+                className="max-h-[480px] max-w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="m-5 flex h-72 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted">
+              No evaluation images uploaded.
+            </div>
+          )}
+        </article>
+
+        <article className="dashboard-panel overflow-hidden">
+          <div className="border-b border-border px-5 py-4">
+            <p className="dashboard-eyebrow">Training metadata</p>
+
+            <h2 className="mt-1 text-xl font-semibold">Run parameters</h2>
+          </div>
+
+          {Object.keys(bestParams).length > 0 ? (
+            <div className="divide-y divide-border">
+              {Object.entries(bestParams).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-4 px-5 py-4"
+                >
+                  <span className="text-sm text-muted">{key}</span>
+
+                  <span className="font-mono text-xs font-semibold text-primary">
+                    {String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="p-5 text-sm text-muted">
+              Hyperparameters are not available for this run.
+            </p>
+          )}
+        </article>
+      </section>
+    </div>
+  );
+}

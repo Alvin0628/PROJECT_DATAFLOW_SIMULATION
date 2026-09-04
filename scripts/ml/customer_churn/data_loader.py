@@ -10,7 +10,6 @@ def load_churn_data(container_path: str = "/opt/airflow/datasets/feature_store/m
             f"There are no parquet file {container_path}. "
         )
     
-    # Menggunakan pandas read_parquet
     df = pd.read_parquet(container_path)
     
     print(f"Data loaded: {df.shape[0]} rows, {df.shape[1]} columns.")

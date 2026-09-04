@@ -30,7 +30,7 @@ class PipelineMetadata:
             logger.warning("No orders found in raw schema. Defaulting to 2019-01-01.")
             return datetime(2019, 1, 1)
             
-        # Optional: Start at the 1st of the month for cleaner batching (e.g., 2019-01-14 -> 2019-01-01)
+        # Start at the 1st of the month from datasets
         earliest_date = row[0]
         return earliest_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -48,7 +48,7 @@ class PipelineMetadata:
         """
         earliest_date = self.get_earliest_order_date()
         
-        # Default: 1 Month window
+        # 1 Month window
         first_period_end = earliest_date + relativedelta(months=1)
         
         logger.info(f"Initializing metadata. Simulation starts from: {earliest_date.strftime('%Y-%m-%d')}")

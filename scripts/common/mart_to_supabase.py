@@ -20,33 +20,21 @@ MART_TABLES = [
 
 
 def sync_table_to_supabase(local_engine, db: SupabasePostgres, table_name: str, schema: str = 'public'):
-    logger.info(f"Membaca {schema}.{table_name} dari lokal...")
+    logger.info(f"Read {schema}.{table_name} from local...")
     df = pd.read_sql_table(table_name, con=local_engine, schema=schema)
 
     if df.empty:
-        logger.warning(f"Tabel {table_name} kosong. Sinkronisasi dilewati.")
+        logger.warning(f"Table {table_name} is empty. Skipp Synchronization.")
         return
 
-    # FIX: 'date' dihapus dari include -- itu BUKAN dtype yang valid untuk
-    # pandas (beda dari 'datetime64[ns]' yang valid). select_dtypes()
-    # memvalidasi SEMUA string di include=[...] SEBELUM cek kolom apapun,
-    # jadi 'date' yang tidak dikenal bikin TypeError instan, terlepas
-    # apakah DataFrame-nya beneran punya kolom tanggal atau tidak -- ini
-    # yang menjelaskan kenapa error-nya identik di ketiga tabel.
-    #
-    # Catatan: kolom SQL bertipe DATE murni (bukan TIMESTAMP) yang dibaca
-    # via SQLAlchemy read_sql_table biasanya balik sebagai dtype 'object'
-    # berisi objek Python datetime.date -- itu TIDAK perlu ditangani
-    # manual di sini, karena df.to_csv() (dipanggil di dalam
-    # copy_dataframe) otomatis serialize objek date jadi string ISO.
     datetime_cols = df.select_dtypes(include=['datetime64[ns]', 'datetime64[ns, UTC]', 'datetimetz']).columns
     for col in datetime_cols:
         df[col] = df[col].astype(str)
 
-    logger.info(f"Mengosongkan tabel {table_name} di Supabase...")
+    logger.info(f"Clearing table {table_name} in Supabase...")
     db.execute(f"TRUNCATE TABLE {schema}.{table_name}")
 
-    logger.info(f"COPY {len(df)} baris ke Supabase...")
+    logger.info(f"COPY {len(df)} rows to Supabase...")
     db.copy_dataframe(
         dataframe=df,
         schema=schema,
@@ -54,11 +42,11 @@ def sync_table_to_supabase(local_engine, db: SupabasePostgres, table_name: str, 
         columns=list(df.columns),
     )
 
-    logger.info(f"✅ Tabel {table_name} berhasil disinkronisasi ({len(df)} baris).")
+    logger.info(f"Table {table_name} successfully synchronized ({len(df)} rows).")
 
 
 def run_sync():
-    logger.info("Memulai proses sinkronisasi Marts (Gold Layer) ke Supabase...")
+    logger.info("Starting Marts (Gold Layer) synchronization process to Supabase...")
 
     engine = create_engine(LOCAL_DB_URI)
 
@@ -68,7 +56,7 @@ def run_sync():
                 sync_table_to_supabase(engine, db, table_name=table_name, schema='public')
                 db.commit()
             except Exception as e:
-                logger.error(f"⚠️ Gagal sinkronisasi tabel {table_name}: {e}")
+                logger.error(f"Failed to synchronize table {table_name}: {e}")
                 db.rollback()
 
 

@@ -24,7 +24,7 @@ XGB_N_JOBS = 2
 
 def diagnose_feature_signal(X: pd.DataFrame, y: pd.Series, categorical_features: list, numeric_features: list):
     print("\n" + "=" * 80)
-    print("DIAGNOSTIK: Mutual Information (fitur vs target 'is_churned')")
+    print("DIAGNOSTIC: Mutual Information (feature vs target 'is_churned')")
     print("=" * 80)
 
     if numeric_features:
@@ -54,11 +54,11 @@ def find_best_threshold(y_true, y_proba) -> float:
             best_f1 = score
             best_threshold = t
 
-    print(f"Threshold optimal ditemukan: {best_threshold:.4f} (F1 Macro = {best_f1:.4f})")
+    print(f"Optimal threshold found: {best_threshold:.4f} (F1 Macro = {best_f1:.4f})")
     return float(best_threshold)
 
 def train_model():
-    print("Memulai Model Training Customer Churn (Fast Optuna + Auto Versioning)...")
+    print("Starting Customer Churn Model Training (Fast Optuna + Auto Versioning)...")
 
     df_raw = load_churn_data()
     df_clean = clean_structural_data(df_raw)
@@ -72,12 +72,12 @@ def train_model():
 
     diagnose_feature_signal(X, y, categorical_features, numeric_features)
 
-    # 1. Split Data Utama (80% Train, 20% Holdout)
+    # 1. Split Data (80% Train, 20% for model evaluation)
     X_train_full, X_test, y_train_full, y_test = train_test_split(
         X, y, test_size=0.2, random_state=SEED, stratify=y
     )
 
-    # 2. Split Data Validasi untuk Optuna (Fast Tuning)
+    # 2. Split Data Validation for Optuna (Fast Tuning)
     X_train_opt, X_val_opt, y_train_opt, y_val_opt = train_test_split(
         X_train_full, y_train_full, test_size=0.2, random_state=SEED, stratify=y_train_full
     )
@@ -119,13 +119,13 @@ def train_model():
         ('classifier', XGBClassifier(**best_params, scale_pos_weight=dynamic_ratio, objective='binary:logistic', tree_method='hist', random_state=SEED, n_jobs=XGB_N_JOBS))
     ])
 
-    # 4. Cari Threshold Optimal (Menggunakan Validation Set)
+    # 4. Find the best threshold
     final_pipeline.fit(X_train_opt, y_train_opt)
     val_proba = final_pipeline.predict_proba(X_val_opt)[:, 1]
     best_threshold = find_best_threshold(y_val_opt, val_proba)
 
-    # 5. Re-fit Final dengan Seluruh Data Train
-    print("Memulai pelatihan final dengan seluruh data training...")
+    # 5. Re-fit Final with all data training  
+    print("Start training with all data...")
     final_pipeline.fit(X_train_full, y_train_full)
 
     # =========================================================================
@@ -157,7 +157,7 @@ def train_model():
     with open(best_params_path, 'w') as f:
         json.dump(best_params, f)
 
-    print(f"✅ Pipeline Customer Churn berhasil disimpan sebagai Versi: {v_tag}!")
+    print(f"Customer Churn Pipeline successfully saved as Version: {v_tag}!")
     return final_pipeline, X_test, y_test
 
 if __name__ == "__main__":

@@ -14,10 +14,7 @@ WITH events_with_purchase_marker AS (
 ),
 
 pre_purchase_events AS (
-    -- PENTING: hanya event SEBELUM purchase (atau semua event kalau sesi
-    -- itu tidak pernah convert). Event 'purchase' sendiri dan apapun
-    -- setelahnya DIBUANG dari perhitungan fitur -- karena itu bagian
-    -- dari/mengikuti outcome, bukan penyebab/prekursor outcome.
+    -- IMPORTANT: Only use events before purchase; exclude purchase and all events after it.
     SELECT *
     FROM events_with_purchase_marker
     WHERE purchase_at IS NULL OR created_at < purchase_at
@@ -28,7 +25,7 @@ session_agg AS (
         session_id,
         MAX(user_id) AS user_id,
         MIN(created_at) AS session_start_at,
-        MAX(created_at) AS session_end_at,  -- akhir aktivitas PRA-purchase saja
+        MAX(created_at) AS session_end_at,  
         COUNT(id) AS total_events,
         MAX(traffic_source) AS traffic_source,
         MAX(browser) AS browser,
@@ -42,7 +39,7 @@ session_agg AS (
 ),
 
 target AS (
-    -- Target dihitung TERPISAH dari seluruh event asli (termasuk purchase)
+    -- Target is calculated separately from all original events, including purchase
     SELECT session_id, MAX(CASE WHEN event_type = 'purchase' THEN 1 ELSE 0 END) AS is_converted
     FROM silver.events
     GROUP BY session_id

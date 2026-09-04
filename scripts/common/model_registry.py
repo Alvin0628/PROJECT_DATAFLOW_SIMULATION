@@ -25,12 +25,13 @@ def push_model_metrics(
     recall_positive: float,
     decision_threshold: float,
     y_true_for_baseline,
-    best_params: dict = None,          # <-- Tambahan argumen
-    evaluation_images: dict = None,    # <-- Tambahan argumen
+    best_params: dict = None,         
+    evaluation_images: dict = None,    
 ) -> dict:
     """
-    Hitung quality gate, tentukan Champion/Challenger, push hasilnya ke tabel model_metrics.
+    Calculate the quality gate, determine the Champion/Challenger, and push the results to the model_metrics table.
     """
+    
     baseline_f1_macro = compute_baseline_f1_macro(y_true_for_baseline)
     quality_gate_passed = bool(f1_macro > baseline_f1_macro)
 
@@ -55,7 +56,7 @@ def push_model_metrics(
                 (model_name,)
             )
 
-        # <-- UPDATE QUERY SQL UNTUK MEMASUKKAN JSONB
+        # update sql query for jsonb
         db.execute(
             """
             INSERT INTO model_metrics (
@@ -69,8 +70,8 @@ def push_model_metrics(
                 model_name, batch_number, pr_auc, roc_auc, f1_macro,
                 precision_positive, recall_positive, decision_threshold,
                 is_new_champion, quality_gate_passed,
-                json.dumps(best_params) if best_params else None,          # Convert dict ke JSON string
-                json.dumps(evaluation_images) if evaluation_images else None # Convert dict ke JSON string
+                json.dumps(best_params) if best_params else None,          # Convert dict to JSON string
+                json.dumps(evaluation_images) if evaluation_images else None # Convert dict to JSON string
             )
         )
 

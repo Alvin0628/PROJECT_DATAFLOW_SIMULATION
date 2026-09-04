@@ -5,7 +5,7 @@ import type {
   ApiResponse,
 } from "@/types/Database.types";
 
-// Hanya butuh path relatif karena selalu dipanggil dari Browser/Client
+// Relative path is sufficient since this is only called from the client
 async function fetchApi<T>(path: string): Promise<ApiResponse<T>> {
   try {
     const res = await fetch(path);
@@ -41,14 +41,13 @@ export function getModelMetrics(
   return fetchApi<ModelMetrics[]>(`/api/metrics${qs ? `?${qs}` : ""}`);
 }
 
-// Tambahkan predictedLabel di interface parameter
 export function getPredictions(params: {
   modelName: string;
   batchNumber?: number;
   limit?: number;
   offset?: number;
   entityId?: string;
-  predictedLabel?: number; // <-- TAMBAHAN BARU
+  predictedLabel?: number; 
 }): Promise<ApiResponse<Prediction[]>> {
   const search = new URLSearchParams();
   search.set('model_name', params.modelName);
@@ -58,7 +57,6 @@ export function getPredictions(params: {
   if (params.offset !== undefined) search.set('offset', String(params.offset));
   if (params.entityId) search.set('entity_id', params.entityId);
   
-  // <-- TAMBAHAN BARU: Kirim filter label ke backend
   if (params.predictedLabel !== undefined) search.set('predicted_label', String(params.predictedLabel)); 
 
   return fetchApi<Prediction[]>(`/api/predictions?${search.toString()}`);

@@ -53,11 +53,8 @@ SIMULATION = {
 }
 
 PIPELINE = {
-
     "metadata_table": "pipeline_metadata",
     "pipeline_name": "operational_incremental",
-
-
 }
 
 CSV = {

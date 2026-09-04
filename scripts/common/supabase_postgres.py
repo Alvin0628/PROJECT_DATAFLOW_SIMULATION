@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 from scripts.common.logger import get_logger
 
-# Load environment variables dari file .env di root folder
 load_dotenv()
 
 logger = get_logger(__name__)
@@ -16,14 +15,14 @@ class SupabasePostgres:
     def __init__(self):
         self.conn = None
         self.cursor = None
-        # Mengambil connection string dari .env
+        # get connection string from env
         self.db_uri = os.environ.get("SUPABASE_DB_URI")
 
     def connect(self):
         if self.conn is None:
             logger.info("Connecting to Supabase PostgreSQL...")
             if not self.db_uri:
-                raise ValueError("SUPABASE_DB_URI belum diset di file .env!")
+                raise ValueError("SUPABASE_DB_URI is not set in the .env file!")
             
             # psycopg3 bisa langsung menerima connection string URI
             self.conn = psycopg.connect(self.db_uri, prepare_threshold=None)
@@ -117,7 +116,7 @@ class SupabasePostgres:
         columns: list[str],
     ):
         """
-        Bulk insert DataFrame into PostgreSQL using COPY.
+        Insert DataFrame into PostgreSQL using COPY.
         """
         if dataframe.empty:
             logger.info(f"{table} is empty. Skip COPY.")
@@ -153,7 +152,7 @@ class SupabasePostgres:
         columns: list[str],
     ):
         """
-        Bulk insert DataFrame into PostgreSQL temporary table using COPY.
+        Insert DataFrame into PostgreSQL temporary table using COPY.
         """
         if dataframe.empty:
             logger.info(f"{table} is empty. Skip COPY.")

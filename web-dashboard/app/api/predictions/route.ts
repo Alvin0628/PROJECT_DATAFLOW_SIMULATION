@@ -4,7 +4,7 @@ import type { Prediction, ApiResponse } from '@/types/Database.types';
 
 const VALID_MODEL_NAMES = ['customer_churn', 'session_conversion'];
 const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 500; // Kita naikkan agar bisa export banyak baris sekaligus
+const MAX_LIMIT = 500;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
   const offsetParam = searchParams.get('offset');
   const entityId = searchParams.get('entity_id');
   
-  // [FITUR BARU]: Tangkap filter label (1 atau 0)
   const predictedLabel = searchParams.get('predicted_label'); 
 
   if (!modelName || !VALID_MODEL_NAMES.includes(modelName)) {
@@ -27,19 +26,18 @@ export async function GET(request: NextRequest) {
 
   const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0;
 
-  // 1. Inisiasi Kueri
+  // Filters can be combined
+
   let query = supabaseAdmin
     .from('predictions')
     .select('*')
     .eq('model_name', modelName)
     .order('probability', { ascending: false });
 
-  // 2. Tumpuk Filter: Jika ada pencarian Entity
   if (entityId) {
     query = query.ilike('entity_id', `%${entityId}%`);
   }
 
-  // 3. Tumpuk Filter: Jika mencari Batch tertentu
   if (batchNumber) {
     const parsedBatch = parseInt(batchNumber, 10);
     if (!isNaN(parsedBatch)) {
@@ -47,12 +45,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4. Tumpuk Filter: Jika memfilter Action/Safe
   if (predictedLabel !== null && predictedLabel !== '') {
     query = query.eq('predicted_label', parseInt(predictedLabel, 10));
   }
 
-  // 5. Pagination
   query = query.range(offset, offset + limit - 1);
 
   const { data, error } = await query;

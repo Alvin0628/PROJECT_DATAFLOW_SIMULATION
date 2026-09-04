@@ -23,5 +23,5 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   );
 }
 
+// UI direction based on the provided dark design references.
 
-// image descriptions: the references show a cinematic payment/about page, a minimal dark creative-studio page, a teal-lit security analytics console, and the current MLOps command-center dashboard. I translated their dark surfaces, strong hierarchy, atmospheric depth, and restrained accent lighting into this product shell without importing their unrelated imagery.

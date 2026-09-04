@@ -13,18 +13,17 @@ export async function GET() {
   }
 
   try {
-    // 1. Siapkan header otentikasi (Basic Auth)
+    // Basic Auth
     const basicAuth = Buffer.from(`${USERNAME}:${PASSWORD}`).toString("base64");
 
-    // 2. Tembak endpoint bawaan Airflow API untuk mengambil daftar DAG
-    // Dokumentasi: GET /api/v1/dags
+    // Get DAGs from Airflow
     const res = await fetch(`${AIRFLOW_URL}/dags`, {
       method: "GET",
       headers: {
         Authorization: `Basic ${basicAuth}`,
         "Content-Type": "application/json",
       },
-      // Jangan di-cache agar kita selalu dapat status terbaru
+      // real time status
       cache: "no-store",
     });
 
@@ -37,7 +36,6 @@ export async function GET() {
 
     return NextResponse.json({ data: data.dags });
   } catch (error) {
-    // Mengecek apakah error tersebut benar-benar sebuah "Object Error" standar
     const errorMessage =
       error instanceof Error
         ? error.message

@@ -1,19 +1,4 @@
--- ==========================================================
--- Project : E-Commerce Data Platform
--- File    : 02_operational_tables.sql
--- Purpose : Create Operational (OLTP) Database Schema
--- ==========================================================
-
--- ==========================================================
--- CREATE SCHEMA
--- ==========================================================
-
 CREATE SCHEMA IF NOT EXISTS {{SCHEMA}};
-
--- ==========================================================
--- TABLE : distribution_centers
--- Grain : 1 row = 1 distribution center
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.distribution_centers (
     id INTEGER PRIMARY KEY,
@@ -22,10 +7,6 @@ CREATE TABLE {{SCHEMA}}.distribution_centers (
     longitude DOUBLE PRECISION
 );
 
--- ==========================================================
--- TABLE : products
--- Grain : 1 row = 1 product
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.products (
     id INTEGER PRIMARY KEY,
@@ -42,10 +23,6 @@ CREATE TABLE {{SCHEMA}}.products (
         REFERENCES {{SCHEMA}}.distribution_centers(id)
 );
 
--- ==========================================================
--- TABLE : users
--- Grain : 1 row = 1 user
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.users (
     id NUMERIC PRIMARY KEY,
@@ -64,11 +41,6 @@ CREATE TABLE {{SCHEMA}}.users (
     traffic_source VARCHAR(100),
     created_at TIMESTAMP
 );
-
--- ==========================================================
--- TABLE : inventory_items
--- Grain : 1 row = 1 physical inventory item
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.inventory_items (
     id INTEGER PRIMARY KEY,
@@ -91,10 +63,6 @@ CREATE TABLE {{SCHEMA}}.inventory_items (
         REFERENCES {{SCHEMA}}.distribution_centers(id)
 );
 
--- ==========================================================
--- TABLE : orders
--- Grain : 1 row = 1 order
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.orders (
     order_id INTEGER PRIMARY KEY,
@@ -110,11 +78,6 @@ CREATE TABLE {{SCHEMA}}.orders (
         FOREIGN KEY (user_id)
         REFERENCES {{SCHEMA}}.users(id)
 );
-
--- ==========================================================
--- TABLE : order_items
--- Grain : 1 row = 1 purchased item (fulfilled/in-stock)
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.order_items (
     id INTEGER PRIMARY KEY,
@@ -142,10 +105,6 @@ CREATE TABLE {{SCHEMA}}.order_items (
         REFERENCES {{SCHEMA}}.inventory_items(id)
 );
 
--- ==========================================================
--- TABLE : order_items_out_of_stock
--- Purpose: Track unfulfilled orders due to stock unavailability 
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.order_items_out_of_stock (
     id INTEGER PRIMARY KEY,
@@ -172,10 +131,6 @@ CREATE TABLE {{SCHEMA}}.order_items_out_of_stock (
         REFERENCES {{SCHEMA}}.products(id)
 );
 
--- ==========================================================
--- TABLE : events
--- Grain : 1 row = 1 website event
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.events (
     id INTEGER PRIMARY KEY,
@@ -196,17 +151,13 @@ CREATE TABLE {{SCHEMA}}.events (
         REFERENCES {{SCHEMA}}.users(id)
 );
 
--- ==========================================================
--- TABLE : pipeline_metadata (DIROMBAK TOTAL)
--- Purpose : Track progress based on Time Window (Monthly)
--- ==========================================================
 
 CREATE TABLE {{SCHEMA}}.pipeline_metadata (
     pipeline_name VARCHAR(100) PRIMARY KEY,
-    current_period_start TIMESTAMP, -- Batas awal waktu batch saat ini
-    current_period_end TIMESTAMP,   -- Batas akhir waktu batch saat ini
-    batch_number INTEGER DEFAULT 0, -- Counter batch (ke-1, ke-2, dst)
-    is_completed BOOLEAN DEFAULT FALSE, -- Flag jika simulasi sudah mencapai data terakhir
+    current_period_start TIMESTAMP, 
+    current_period_end TIMESTAMP,   
+    batch_number INTEGER DEFAULT 0, 
+    is_completed BOOLEAN DEFAULT FALSE, 
     last_run_at TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

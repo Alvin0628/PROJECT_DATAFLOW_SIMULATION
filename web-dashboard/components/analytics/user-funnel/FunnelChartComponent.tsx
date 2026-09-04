@@ -1,4 +1,4 @@
-// file: components/analytics/user-funnel/FunnelChartComponent.tsx
+// components/analytics/user-funnel/FunnelChartComponent.tsx
 "use client";
 
 import {

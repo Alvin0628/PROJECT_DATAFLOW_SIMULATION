@@ -12,8 +12,8 @@ from sklearn.metrics import (
     roc_auc_score,
     average_precision_score,
     f1_score,
-    precision_score,      # <-- Tambahan untuk Supabase
-    recall_score,         # <-- Tambahan untuk Supabase
+    precision_score,      
+    recall_score,         
     classification_report,
     confusion_matrix,
     ConfusionMatrixDisplay,
@@ -22,24 +22,21 @@ from sklearn.metrics import (
 )
 
 from scripts.ml.customer_churn.model_trainer import train_model
-from scripts.common.model_registry import push_model_metrics # <-- Tambahan Pipa Supabase
+from scripts.common.model_registry import push_model_metrics 
 
-def evaluate_model(**context): # <-- Tambahan parameter **context
-    print("Mencari model Customer Churn versi terbaru...")
+def evaluate_model(**context): 
+    print("Searching for the latest Customer Churn model...")
     
-    # 1. Update ke folder Auto-Versioning yang benar
     model_dir = "/opt/airflow/models/customer_churn"
     test_set_dir = os.path.join(model_dir, "test_set")
     
-    # 2. Logika Auto-Discovery (Mencari file berakhiran _v1, _v2, dst)
     existing_models = glob.glob(os.path.join(model_dir, "customer_churn_model_v*.joblib"))
     
     if not existing_models:
-        print("⚠️ Tidak ada model ditemukan. Menjalankan proses training...")
+        print("No model found. Running training process...")
         pipeline, X_test, y_test = train_model()
         return
         
-    # Cari angka versi terbesar
     versions = []
     for m in existing_models:
         match = re.search(r'_v(\d+)\.joblib', m)
@@ -49,21 +46,20 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
     latest_version = max(versions)
     v_tag = f"v{latest_version}"
     
-    print(f"-> Mengevaluasi Model {v_tag.upper()}")
+    print(f"->Evaluating the model {v_tag.upper()}")
 
-    # 3. Definisikan path menggunakan versi terbaru
     model_path = os.path.join(model_dir, f"customer_churn_model_{v_tag}.joblib")
     threshold_path = os.path.join(model_dir, f"customer_churn_threshold_{v_tag}.joblib")
     X_test_path = os.path.join(test_set_dir, f"X_test_customer_churn_{v_tag}.joblib")
     y_test_path = os.path.join(test_set_dir, f"y_test_customer_churn_{v_tag}.joblib")
 
-    # 4. Load File
+    # Load File
     pipeline = joblib.load(model_path)
     X_test = joblib.load(X_test_path)
     y_test = joblib.load(y_test_path)
     decision_threshold = joblib.load(threshold_path) if os.path.exists(threshold_path) else 0.5
 
-    # 5. Prediksi dan Evaluasi
+    # Prediction and Evaluation
     y_proba = pipeline.predict_proba(X_test)[:, 1]
     y_pred = (y_proba >= decision_threshold).astype(int)
 
@@ -74,7 +70,6 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
     f1_macro = f1_score(y_test, y_pred, average='macro', zero_division=0)
     f1_binary = f1_score(y_test, y_pred, average='binary', zero_division=0)
     
-    # <-- Kalkulasi tambahan wajib untuk model_registry
     precision_positive = precision_score(y_test, y_pred, pos_label=1, zero_division=0)
     recall_positive = recall_score(y_test, y_pred, pos_label=1, zero_division=0)
 
@@ -91,7 +86,7 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=['Retained (0)', 'Churn (1)'], zero_division=0))
     
-    # 6. Plotting
+    # Plotting
     output_dir = "/opt/airflow/output"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -109,16 +104,12 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
     plot_path = os.path.join(output_dir, f"customer_churn_evaluation_{v_tag}.png")
     plt.savefig(plot_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
-    print(f"Grafik tersimpan di: {plot_path}")
+    print(f"Plot saved to: {plot_path}")
 
-# ========================================================================
-    # 6.5 PUSH GAMBAR KE SUPABASE STORAGE & BACA BEST PARAMS
-    # ========================================================================
+    # PUSH TO SUPABASE 
     import json
-    
-    # PERBAIKAN: Bungkus SEMUA proses Supabase dalam Try-Except yang kuat
+
     try:
-        # Pindahkan import ke dalam try agar jika library belum ada, tidak crash
         from supabase import create_client, Client
         
         dag_run = context.get('dag_run')
@@ -131,7 +122,7 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
         if URL and KEY:
             supabase: Client = create_client(URL, KEY)
             bucket_name = "model-evaluations"
-            # Pastikan variabel v_tag sesuai dengan modelnya (churn / conversion)
+    
             storage_file_name = f"model_eval_{v_tag}_batch{batch_number}.png" 
             
             with open(plot_path, 'rb') as f:
@@ -141,22 +132,20 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
                     file_options={"content-type": "image/png", "upsert": "true"}
                 )
             public_url = supabase.storage.from_(bucket_name).get_public_url(storage_file_name)
-            print(f"✅ Gambar berhasil diunggah: {public_url}")
+            print(f"Image uploaded successfully: {public_url}")
             
     except ImportError:
-        print("⚠️ Library 'supabase' belum terinstall. Lewati upload gambar.")
         public_url = None
     except Exception as e:
-        print(f"⚠️ Gagal mengunggah gambar ke Storage: {e}")
+        print(f"Export image to Supabase Storage is failed: {e}")
         public_url = None
 
-    # Format JSON untuk database
+    # JSON format for database
     evaluation_images_json = {"roc_and_cm": public_url} if public_url else {}
 
-    # BACA BEST PARAMS
+    # BEST PARAMS
     best_params_json = {}
     try:
-        # Sesuaikan awalan nama file dengan nama model (customer_churn / session_conversion)
         best_params_path = os.path.join(model_dir, f"customer_churn_best_params_{v_tag}.json")
         if os.path.exists(best_params_path):
             with open(best_params_path, 'r') as f:
@@ -164,12 +153,10 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
     except Exception as e:
         print(f"⚠️ Gagal baca best_params: {e}")
 
-    # ========================================================================
-    # 7. PUSH KE SUPABASE
-    # ========================================================================
+    # PUSH TO SUPABASE
     try:
         push_model_metrics(
-            model_name="customer_churn", # UBAH JADI "session_conversion" untuk script conversion
+            model_name="customer_churn", 
             batch_number=batch_number,
             f1_macro=float(f1_macro),
             pr_auc=float(pr_auc),
@@ -181,10 +168,9 @@ def evaluate_model(**context): # <-- Tambahan parameter **context
             best_params=best_params_json,          
             evaluation_images=evaluation_images_json 
         )
-        print("✅ Metrik berhasil dikirim ke Supabase Model Registry!")
+        print("Metrics successfully sent to Supabase Model Registry!")
     except Exception as e:
-        # Print error, tapi JANGAN buat script mati (agar task Airflow tetap hijau)
-        print(f"⚠️ Warning: Gagal push metrik ke Supabase: {e}")
+        print(f"Warning: Failed to push metrics to Supabase: {e}")
 
 if __name__ == "__main__":
     evaluate_model()

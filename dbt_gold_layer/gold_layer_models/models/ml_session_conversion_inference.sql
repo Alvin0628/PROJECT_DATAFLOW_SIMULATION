@@ -5,7 +5,6 @@
     ]
 ) }}
 
--- 1. Tentukan Jendela Waktu (Delta: 30 Hari Terakhir)
 WITH global_time_window AS (
     SELECT 
         MAX(created_at) AS max_date,
@@ -19,14 +18,13 @@ session_has_purchase AS (
         MAX(CASE WHEN e.event_type = 'purchase' THEN 1 ELSE 0 END) AS already_converted
     FROM silver.events e
     CROSS JOIN global_time_window g
-    -- FILTER DELTA: Hanya tarik sesi yang terjadi bulan ini
     WHERE e.created_at > g.window_start 
       AND e.created_at <= g.max_date
     GROUP BY e.session_id
 ),
 
 undecided_sessions AS (
-    -- Hanya sesi yang BELUM pernah convert
+    -- Only sessions that have not converted yet
     SELECT session_id
     FROM session_has_purchase
     WHERE already_converted = 0
@@ -51,7 +49,7 @@ session_agg AS (
     GROUP BY e.session_id
 )
 
--- Build Final Table (Tetap Sama)
+-- Final Table 
 SELECT
     sa.session_id,
     sa.user_id,

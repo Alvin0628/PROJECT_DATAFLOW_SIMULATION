@@ -17,12 +17,12 @@ default_args = {
 with DAG(
     dag_id="ml_session_conversion_inference_pipeline",
     default_args=default_args,
-    description="Inference dijalankan SETIAP batch secara independen",
+    description="Inference runs independently on every batch",
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["mlops", "inference"],
-    max_active_runs=3, # Izinkan tumpang tindih jika antrean panjang
+    max_active_runs=3, 
     on_success_callback=dag_success_callback,
     on_failure_callback=dag_failure_callback,
 ) as dag:

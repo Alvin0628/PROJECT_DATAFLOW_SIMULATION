@@ -126,7 +126,7 @@ class Postgres:
         columns: list[str],
     ):
         """
-        Bulk insert DataFrame into PostgreSQL using COPY.
+        Insert DataFrame into PostgreSQL using COPY.
         """
         if dataframe.empty:
             logger.info(
@@ -173,7 +173,7 @@ class Postgres:
         columns: list[str],
     ):
         """
-        Bulk insert DataFrame into PostgreSQL temporary table using COPY.
+        Insert DataFrame into PostgreSQL temporary table using COPY.
         """
 
         if dataframe.empty:

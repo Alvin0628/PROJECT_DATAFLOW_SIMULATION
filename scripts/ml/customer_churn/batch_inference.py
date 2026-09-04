@@ -7,17 +7,13 @@ from sqlalchemy import create_engine
 import sys
 
 from scripts.ml.customer_churn.preprocessor import clean_structural_data
-from scripts.common.supabase_postgres import SupabasePostgres # <-- 1. IMPORT SENJATA RAHASIA
+from scripts.common.supabase_postgres import SupabasePostgres 
 
-# TAMBAHKAN **kwargs UNTUK MENANGKAP PAYLOAD DARI AIRFLOW DAG
 def run_batch_inference(**kwargs):
-    print("Memulai Multi-Model Batch Inference Customer Churn...")
+    print("Starting Multi-Model Customer Churn Batch Inference...")
     
-    # =========================================================================
-    # 1. TANGKAP NAMA BULAN & BATCH NUMBER DARI AIRFLOW PAYLOAD
-    # =========================================================================
     sim_month = "unknown"
-    batch_number = 0 # <-- Tambahan untuk Supabase
+    batch_number = 0
     
     if "dag_run" in kwargs and kwargs["dag_run"].conf:
         sim_month = kwargs["dag_run"].conf.get("sim_month", "unknown")
@@ -26,14 +22,12 @@ def run_batch_inference(**kwargs):
     if sim_month == "unknown":
         sim_month = os.getenv("SIM_MONTH", "unknown")
         
-    print(f"Mengeksekusi Inference untuk Bulan Simulasi: {sim_month} | Batch: {batch_number}")
+    print(f"Executing Inference for Simulation Month: {sim_month} | Batch: {batch_number}")
     
-    # =========================================================================
-    # 2. BACA FILE INFERENCE BULAN BERJALAN (DELTA)
-    # =========================================================================
+    # read inference file (monthly)
     inference_path = f"/opt/airflow/datasets/feature_store/ml_customer_churn_inference_{sim_month}.parquet"
     if not os.path.exists(inference_path):
-        print(f"⚠️ File parquet inference belum tersedia: {inference_path}")
+        print(f"Inference parquet file not available: {inference_path}")
         return
         
     df_inference = pd.read_parquet(inference_path)
@@ -43,7 +37,7 @@ def run_batch_inference(**kwargs):
     model_files = glob.glob("/opt/airflow/models/customer_churn/customer_churn_model_v*.joblib")
     
     if not model_files:
-        print("⚠️ Belum ada model sama sekali (Cold Start). Skip Inference.")
+        print("No models available... Skipping Inference...")
         return 
     
     df_clean = clean_structural_data(df_inference)    
@@ -62,7 +56,7 @@ def run_batch_inference(**kwargs):
         sim_time_query = "SELECT MAX(created_at) FROM silver.orders"
         current_sim_time = pd.read_sql(sim_time_query, engine).iloc[0, 0]
     except Exception as e:
-        print(f"Gagal mengambil waktu simulasi, fallback ke waktu lokal: {e}")
+        print(f"Failed to retrieve simulation time, falling back to local time: {e}")
         current_sim_time = pd.Timestamp.now()
 
     for model_path in model_files:
@@ -70,7 +64,7 @@ def run_batch_inference(**kwargs):
         v_tag = f"v{match.group(1)}" if match else "v0"
         
         threshold_path = f"/opt/airflow/models/customer_churn/customer_churn_threshold_{v_tag}.joblib"
-        print(f"-> Menjalankan prediksi menggunakan Model {v_tag}...")
+        print(f"-> Running prediction using Model {v_tag}...")
         
         pipeline = joblib.load(model_path)
         threshold = joblib.load(threshold_path) if os.path.exists(threshold_path) else 0.5
@@ -92,9 +86,7 @@ def run_batch_inference(**kwargs):
 
     df_final_log = pd.concat(all_logs, ignore_index=True)
     
-    # =========================================================================
-    # 3. SIMPAN HASIL PREDIKSI KE LOKAL (PARQUET & DWH LAMA)
-    # =========================================================================
+    # save to parquet
     output_dir = "/opt/airflow/datasets/prediction"
     os.makedirs(output_dir, exist_ok=True)
     
@@ -102,14 +94,12 @@ def run_batch_inference(**kwargs):
     df_parquet.to_parquet(out_file, index=False)
     
     df_final_log.to_sql('ml_churn_inference_logs', engine, schema='public', if_exists='append', index=False)
-    print(f"✅ Tersimpan {len(df_final_log)} total log prediksi dari {len(model_files)} model ke database DWH Lokal.")
+    print(f"=== Saved === {len(df_final_log)} total prediction logs from {len(model_files)} models to the local DWH database.")
 
-    # =========================================================================
-    # 4. EXTEND: PUSH KE SUPABASE CLOUD
-    # =========================================================================
-    print("Mempersiapkan data untuk di-push ke Supabase Cloud...")
+    # push to supabase cloud
+    print("Preparing data to be pushed to Supabase Cloud...")
     try:
-        # Ubah nama kolom agar cocok dengan skema tabel 'predictions' Supabase
+        
         df_supabase = df_final_log[['user_id', 'churn_probability', 'predicted_to_churn']].copy()
         df_supabase.rename(columns={
             'user_id': 'entity_id',
@@ -117,16 +107,13 @@ def run_batch_inference(**kwargs):
             'predicted_to_churn': 'predicted_label'
         }, inplace=True)
         
-        # Tambahkan identitas pipeline
         df_supabase['model_name'] = 'customer_churn'
         df_supabase['batch_number'] = batch_number
-        df_supabase['entity_id'] = df_supabase['entity_id'].astype(str) # Pastikan format teks
+        df_supabase['entity_id'] = df_supabase['entity_id'].astype(str) 
         
-        # Tentukan urutan kolom yang akan di-COPY
         columns_to_push = ['model_name', 'batch_number', 'entity_id', 'probability', 'predicted_label']
         df_supabase = df_supabase[columns_to_push]
-        
-        # Tembak massal ke Supabase!
+
         with SupabasePostgres() as db:
             db.copy_dataframe(
                 dataframe=df_supabase,
@@ -134,10 +121,10 @@ def run_batch_inference(**kwargs):
                 table='predictions',
                 columns=columns_to_push
             )
-        print("🚀 Berhasil push jutaan/ribuan prediksi ke Supabase Cloud!")
+        print("Predictions successfully sent to Supabase Cloud.")
     except Exception as e:
         # Pakai try-except agar DWH lokal tidak gagal jika internet putus
-        print(f"⚠️ Gagal push prediksi ke Supabase: {e}")
+        print(f"Failed to push predictions to Supabase: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

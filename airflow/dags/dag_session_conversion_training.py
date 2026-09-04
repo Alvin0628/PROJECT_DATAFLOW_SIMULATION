@@ -21,12 +21,12 @@ def check_if_training_needed(**context):
     if current_batch > 0 and current_batch % 6 == 0:
         return "train_conversion_model"
     else:
-        return "skip_training" # Selesai, tidak ngapa-ngapain
+        return "skip_training" 
 
 with DAG(
     dag_id="ml_session_conversion_training_pipeline",
     default_args=default_args,
-    description="Training hanya jalan kelipatan 6, tidak memblokir inference",
+    description="Training only runs every 6 cycles and does not block inference",
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
@@ -55,10 +55,9 @@ with DAG(
         python_callable=evaluate_model,
     )
     
-    # Task kosong untuk jalur skip
     skip_training = BashOperator(
         task_id="skip_training",
-        bash_command="echo 'Bukan kelipatan 6. Skip Training.'",
+        bash_command="echo 'Not a multiple of 6. Skipping Training.'",
     )
 
     branching_task >> train_conversion_task >> evaluate_conversion_task

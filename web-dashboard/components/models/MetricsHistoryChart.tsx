@@ -15,8 +15,7 @@ import {
 export default function MetricsHistoryChart({ data }: { data: ModelMetrics[] }) {
   if (!data || data.length === 0) return null;
 
-  // Recharts butuh urutan waktu dari kiri ke kanan (terlama ke terbaru)
-  // Data dari API biasanya terbaru di atas, jadi kita reverse()
+  // API returns newest first, so reverse the data
   const chartData = [...data].reverse().map((d) => ({
     batch: `B-${d.batch_number}`,
     f1_macro: d.f1_macro,

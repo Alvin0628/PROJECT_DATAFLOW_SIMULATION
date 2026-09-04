@@ -2,11 +2,10 @@ from scripts.common.supabase_postgres import SupabasePostgres
 
 def log_pipeline_health(context, status):
     """
-    Fungsi inti untuk mengirim status DAG ke Supabase.
+    This function is for send airflow status to supabase...
     """
     dag_id = context['dag'].dag_id
     
-    # Ekstrak batch_number dari DAG Run Configuration (jika ada)
     dag_run = context.get('dag_run')
     batch_number = 0
     if dag_run and dag_run.conf:
@@ -26,9 +25,9 @@ def log_pipeline_health(context, status):
                 """,
                 (dag_id, status, batch_number)
             )
-        print(f"✅ Pipeline Health Logged to Supabase: {dag_id} -> {status}")
+        print(f"Pipeline Health Logged to Supabase: {dag_id} -> {status}")
     except Exception as e:
-        print(f"⚠️ Gagal push pipeline health ke Supabase: {e}")
+        print(f"Failed to push pipeline health to Supabase: {e}")
 
 def dag_success_callback(context):
     log_pipeline_health(context, 'success')

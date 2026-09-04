@@ -1,5 +1,5 @@
-// file: components/analytics/SalesChart.tsx
-"use client"; // Wajib untuk Recharts karena interaktif (hover, tooltip)
+// components/analytics/SalesChart.tsx
+"use client"; // Required for Recharts interactivity (hover, tooltip)
 
 import {
   BarChart,

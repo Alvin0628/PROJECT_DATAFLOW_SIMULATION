@@ -1,9 +1,9 @@
 #!/bin/bash
-# Entrypoint script untuk Airflow standalone + init password setup
+# Entrypoint script for Airflow standalone + init password setup
 
 set -e
 
-# Jika ini first startup, jalankan init
+# If this is the first startup, run init
 if [ ! -f "/opt/airflow/.initialized" ]; then
     echo ""
     echo "=========================================="
@@ -26,7 +26,7 @@ if [ ! -f "/opt/airflow/.initialized" ]; then
       --email "admin@example.com" \
       --password "${_AIRFLOW_WWW_USER_PASSWORD:-airflow}" 2>&1 || true
     
-    # Update password untuk memastikan
+    # Update password 
     python3 << 'PYTHON_EOF'
 import sys
 import os
@@ -70,5 +70,5 @@ PYTHON_EOF
     echo ""
 fi
 
-# Jalankan standalone command
+# run standalone command
 exec airflow standalone "$@"
