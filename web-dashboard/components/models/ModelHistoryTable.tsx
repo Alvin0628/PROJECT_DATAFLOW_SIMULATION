@@ -10,9 +10,13 @@ interface ModelHistoryTableProps {
 export default async function ModelHistoryTable({
   modelName,
 }: ModelHistoryTableProps) {
-  const res = await fetch(`${getBaseUrl()}/api/metrics?model_name=${modelName}`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${getBaseUrl()}/api/metrics?model_name=${modelName}`,
+    {
+      cache: "no-store",
+    },
+  );
+
   const body: ApiResponse<ModelMetrics[]> = await res.json();
 
   if (body.error) {
@@ -34,9 +38,10 @@ export default async function ModelHistoryTable({
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="border-b border-border px-5 py-4 md:px-6">
+    <div className="flex w-full min-w-0 flex-col">
+      <div className="min-w-0 overflow-hidden border-b border-border px-5 py-4 md:px-6">
         <p className="dashboard-eyebrow">Evaluation trend</p>
+
         <MetricsHistoryChart data={data} />
       </div>
 
@@ -52,6 +57,7 @@ export default async function ModelHistoryTable({
               <th className="px-5 py-3">Role</th>
             </tr>
           </thead>
+
           <tbody>
             {data.map((m) => (
               <tr key={m.id}>
@@ -63,15 +69,19 @@ export default async function ModelHistoryTable({
                     B#{m.batch_number} →
                   </Link>
                 </td>
+
                 <td className="px-5 py-4 text-xs text-muted">
                   {new Date(m.trained_at).toLocaleString("id-ID")}
                 </td>
+
                 <td className="px-5 py-4 font-mono text-xs">
                   {m.f1_macro?.toFixed(4) ?? "-"}
                 </td>
+
                 <td className="px-5 py-4 font-mono text-xs">
                   {m.pr_auc?.toFixed(4) ?? "-"}
                 </td>
+
                 <td className="px-5 py-4">
                   <span
                     className={`rounded-md px-2 py-1 font-mono text-[10px] font-bold ${
@@ -83,6 +93,7 @@ export default async function ModelHistoryTable({
                     {m.quality_gate_passed ? "PASSED" : "FAILED"}
                   </span>
                 </td>
+
                 <td className="px-5 py-4">
                   {m.is_champion ? (
                     <span className="rounded-md bg-warning-soft px-2 py-1 font-mono text-[10px] font-bold text-warning">

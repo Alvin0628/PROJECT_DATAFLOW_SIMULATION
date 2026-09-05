@@ -263,7 +263,7 @@ export default async function ModelsPage() {
             return (
               <section
                 key={model.key}
-                className="grid gap-6 xl:grid-cols-[0.8fr_2fr]"
+                className="grid min-w-0 gap-6 xl:grid-cols-[0.8fr_2fr]"
               >
                 <div className="flex flex-col justify-between gap-5">
                   <div>
